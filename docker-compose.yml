@@ -1,0 +1,65 @@
+name: leno-expenses
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # PostgreSQL is only reachable from the internal Docker network.
+    # Uncomment to expose it on the host (e.g. for a DB client):
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+      args:
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Leno Expenses}
+        NEXT_PUBLIC_THEME_COLOR: ${NEXT_PUBLIC_THEME_COLOR:-#0f766e}
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      NODE_ENV: production
+      # "Today" / "this month" are computed in this zone.
+      TZ: ${TZ:-Asia/Kolkata}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Leno Expenses}
+        NEXT_PUBLIC_THEME_COLOR: ${NEXT_PUBLIC_THEME_COLOR:-#0f766e}
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      NODE_ENV: production
+      # "Today" / "this month" are computed in this zone.
+      TZ: ${TZ:-Asia/Kolkata}
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:

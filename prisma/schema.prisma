@@ -1,0 +1,194 @@
+// Leno Expenses – Prisma schema
+// Money values are stored as DECIMAL(14,2). Never use JS floats for money.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Who financially owns the money. Not a login user.
+enum Owner {
+  SELF
+  BROTHER
+}
+
+enum AccountType {
+  CASH
+  BANK
+  UPI
+  CARD
+  TRADING
+  OTHER
+}
+
+enum CategoryType {
+  EXPENSE
+  INCOME
+}
+
+enum TransactionType {
+  EXPENSE
+  INCOME
+  TRANSFER
+  TRADING_DEPOSIT
+  TRADING_WITHDRAWAL
+  TRADING_PROFIT
+  TRADING_LOSS
+  BORROW
+  LEND
+  LOAN_REPAYMENT
+  LENT_REPAYMENT
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  BANK
+  CARD
+  TRANSFER
+  OTHER
+}
+
+enum LoanDirection {
+  BORROWED
+  LENT
+}
+
+enum LoanStatus {
+  ACTIVE
+  PAID
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String
+  /// Incremented on password change to invalidate existing sessions.
+  sessionVersion Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  accounts     Account[]
+  categories   Category[]
+  transactions Transaction[]
+  people       Person[]
+  loans        Loan[]
+}
+
+model Account {
+  id             String      @id @default(cuid())
+  userId         String
+  name           String
+  type           AccountType
+  owner          Owner       @default(SELF)
+  openingBalance Decimal     @default(0) @db.Decimal(14, 2)
+  isActive       Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outgoing Transaction[] @relation("FromAccount")
+  incoming Transaction[] @relation("ToAccount")
+
+  @@index([userId])
+  @@index([userId, owner])
+  @@index([userId, type])
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  userId    String
+  name      String
+  type      CategoryType
+  icon      String?
+  color     String?
+  isActive  Boolean      @default(true)
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, type, name])
+  @@index([userId])
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loans Loan[]
+
+  @@index([userId])
+}
+
+model Loan {
+  id                String        @id @default(cuid())
+  userId            String
+  personId          String
+  direction         LoanDirection
+  originalAmount    Decimal       @db.Decimal(14, 2)
+  /// Derived: originalAmount - sum(repayments). Recomputed inside the same DB transaction
+  /// whenever a linked transaction changes.
+  outstandingAmount Decimal       @db.Decimal(14, 2)
+  status            LoanStatus    @default(ACTIVE)
+  notes             String?
+  startDate         DateTime      @db.Date
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  person       Person        @relation(fields: [personId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+
+  @@index([userId, status])
+  @@index([personId])
+}
+
+model Transaction {
+  id              String          @id @default(cuid())
+  userId          String
+  type            TransactionType
+  amount          Decimal         @db.Decimal(14, 2)
+  categoryId      String?
+  owner           Owner           @default(SELF)
+  /// Money leaves this account (EXPENSE, TRANSFER, TRADING_DEPOSIT/WITHDRAWAL, TRADING_LOSS, LEND, LOAN_REPAYMENT)
+  fromAccountId   String?
+  /// Money enters this account (INCOME, TRANSFER, TRADING_DEPOSIT/WITHDRAWAL, TRADING_PROFIT, BORROW, LENT_REPAYMENT)
+  toAccountId     String?
+  paymentMode     PaymentMode     @default(OTHER)
+  notes           String?
+  transactionDate DateTime        @db.Date
+  /// Set for BORROW, LEND, LOAN_REPAYMENT, LENT_REPAYMENT
+  loanId          String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  fromAccount Account?  @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  toAccount   Account?  @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: Restrict)
+  loan        Loan?     @relation(fields: [loanId], references: [id], onDelete: Restrict)
+
+  @@index([userId, transactionDate(sort: Desc), createdAt(sort: Desc)])
+  @@index([userId, type])
+  @@index([userId, owner])
+  @@index([userId, paymentMode])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@index([categoryId])
+  @@index([loanId])
+}
