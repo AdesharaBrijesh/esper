@@ -6,7 +6,13 @@ loadEnv();
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) {
-  console.error("TEST_DATABASE_URL is not set in .env – skipping integration tests.");
+  // Skipping locally is a convenience; skipping in CI would mean "tests passed" was
+  // reported for a suite that never ran.
+  if (process.env.CI) {
+    console.error("TEST_DATABASE_URL is not set. Integration tests are required in CI.");
+    process.exit(1);
+  }
+  console.error("TEST_DATABASE_URL is not set in .env - skipping integration tests.");
   process.exit(0);
 }
 

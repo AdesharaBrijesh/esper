@@ -1,4 +1,4 @@
-name: leno-expenses
+name: esper
 
 services:
   postgres:
@@ -16,6 +16,12 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    # Unbounded json-file logs are the classic way a home server runs out of disk.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     # PostgreSQL is only reachable from the internal Docker network.
     # Uncomment to expose it on the host (e.g. for a DB client):
     # ports:
@@ -26,7 +32,7 @@ services:
       context: .
       target: migrate
       args:
-        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Leno Expenses}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Esper}
         NEXT_PUBLIC_THEME_COLOR: ${NEXT_PUBLIC_THEME_COLOR:-#0f766e}
     env_file: ${ENV_FILE:-.env}
     environment:
@@ -37,13 +43,19 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
+    # Unbounded json-file logs are the classic way a home server runs out of disk.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   app:
     build:
       context: .
       target: runner
       args:
-        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Leno Expenses}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Esper}
         NEXT_PUBLIC_THEME_COLOR: ${NEXT_PUBLIC_THEME_COLOR:-#0f766e}
     restart: unless-stopped
     env_file: ${ENV_FILE:-.env}
@@ -60,6 +72,20 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    # The image defines its own HEALTHCHECK (see Dockerfile); restated here so the
+    # intent is visible where the service is configured.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # Unbounded json-file logs are the classic way a home server runs out of disk.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
   postgres_data:
