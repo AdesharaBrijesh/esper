@@ -1,5 +1,5 @@
 {
-  "name": "leno-expenses",
+  "name": "esper",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -19,7 +19,8 @@
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "test:integration": "node scripts/run-integration-tests.mjs",
     "db:demo": "tsx --conditions=react-server scripts/demo-data.ts",
-    "test:all": "npm test && npm run test:integration"
+    "test:all": "npm test && npm run test:integration",
+    "reset-password": "tsx scripts/reset-password.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
