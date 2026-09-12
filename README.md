@@ -1,4 +1,4 @@
-# Leno Expenses
+# Esper
 
 A self-hosted, mobile-first personal finance tracker for daily expenses, income, account transfers, trading capital (for yourself and your brother), and money borrowed from or lent to friends. Built as an installable PWA and deployed with Docker Compose on a home server.
 
@@ -49,8 +49,8 @@ Edit `.env` for local development. Point `DATABASE_URL` at your local PostgreSQL
 
 ```env
 NODE_ENV=development
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/leno_expenses_dev
-TEST_DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/leno_expenses_test   # optional, for integration tests
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/esper_dev
+TEST_DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/esper_test   # optional, for integration tests
 AUTH_SECRET=some-long-random-string
 SEED_USER_NAME=Me
 SEED_USER_EMAIL=admin@example.com
@@ -59,7 +59,7 @@ SEED_USER_PASSWORD=choose-a-password   # at least 8 characters
 
 If the database password contains special characters (`@ : / ? # %`), URL-encode them in `DATABASE_URL` (for example `@` becomes `%40`).
 
-Create the database (`CREATE DATABASE leno_expenses_dev;`), then:
+Create the database (`CREATE DATABASE esper_dev;`), then:
 
 ```bash
 npm run db:migrate      # prisma migrate dev – applies migrations and generates the client
@@ -158,23 +158,23 @@ docker compose down -v          # DANGER: also deletes the database volume
 
 ## Backup and restore
 
-`scripts/backup.sh` dumps the database with `pg_dump` from the running container into `./backups/leno-expenses_<date>.sql.gz` (outside the container) and prunes files older than `KEEP_DAYS` (default 30):
+`scripts/backup.sh` dumps the database with `pg_dump` from the running container into `./backups/esper_<date>.sql.gz` (outside the container) and prunes files older than `KEEP_DAYS` (default 30):
 
 ```bash
 ./scripts/backup.sh
-BACKUP_DIR=/mnt/nas/leno KEEP_DAYS=90 ./scripts/backup.sh
+BACKUP_DIR=/mnt/nas/esper KEEP_DAYS=90 ./scripts/backup.sh
 ```
 
 Schedule it with cron on the host:
 
 ```cron
-30 2 * * * cd /opt/expense-tracker && ./scripts/backup.sh >> /var/log/leno-backup.log 2>&1
+30 2 * * * cd /opt/expense-tracker && ./scripts/backup.sh >> /var/log/esper-backup.log 2>&1
 ```
 
 Restore a dump (this overwrites the current database):
 
 ```bash
-./scripts/restore.sh backups/leno-expenses_2026-09-08_023000.sql.gz
+./scripts/restore.sh backups/esper_2026-09-08_023000.sql.gz
 ```
 
 The underlying commands, if you prefer to run them by hand:

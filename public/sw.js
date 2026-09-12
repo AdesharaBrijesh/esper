@@ -1,5 +1,5 @@
-/* Leno Expenses service worker: offline fallback + static asset cache. */
-const CACHE_NAME = "leno-static-v1";
+/* Esper service worker: offline fallback + static asset cache. */
+const CACHE_NAME = "esper-static-v1";
 const OFFLINE_URL = "/offline";
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png", "/manifest.webmanifest"];
 

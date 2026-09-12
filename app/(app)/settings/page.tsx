@@ -96,7 +96,7 @@ export default async function SettingsPage() {
             compressed dump in <code>./backups</code> (or <code>BACKUP_DIR</code>):
           </p>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-background p-2 text-[11px]">
-            <code>{`./scripts/backup.sh\n./scripts/restore.sh backups/leno-expenses_<date>.sql.gz`}</code>
+            <code>{`./scripts/backup.sh\n./scripts/restore.sh backups/esper_<date>.sql.gz`}</code>
           </pre>
           <p className="mt-2">
             Schedule it with cron, e.g. <code>30 2 * * * cd /opt/expense-tracker && ./scripts/backup.sh</code>. See the README for details.

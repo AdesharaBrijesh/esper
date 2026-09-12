@@ -3,7 +3,7 @@
  * can be fetched with curl during development:
  *
  *   npx tsx scripts/dev-session-cookie.ts
- *   curl -b "leno_session=<token>" http://localhost:3000/
+ *   curl -b "esper_session=<token>" http://localhost:3000/
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";

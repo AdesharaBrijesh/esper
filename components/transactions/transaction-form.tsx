@@ -65,7 +65,7 @@ interface Props {
 }
 
 const NEW_PERSON = "__new__";
-const REMEMBER_KEY = (type: string) => `leno:last:${type}`;
+const REMEMBER_KEY = (type: string) => `esper:last:${type}`;
 
 interface Remembered {
   fromAccountId?: string | null;

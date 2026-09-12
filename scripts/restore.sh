@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # Restore a backup created by scripts/backup.sh into the running postgres container.
 #
-#   ./scripts/restore.sh ./backups/leno-expenses_2026-09-08_023000.sql.gz
+#   ./scripts/restore.sh ./backups/esper_2026-09-08_023000.sql.gz
 #
 # WARNING: this replaces the current database contents.
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ---------------------------------------------------------------------------
-# Leno Expenses – multi-stage production build
+# Esper – multi-stage production build
 #   deps     : install all dependencies
 #   builder  : prisma generate + next build (standalone output)
 #   migrate  : one-shot container that runs migrations + seed, then exits
@@ -20,7 +20,7 @@ RUN npm ci --no-audit --no-fund
 
 # ---- builder ---------------------------------------------------------------
 FROM base AS builder
-ARG NEXT_PUBLIC_APP_NAME="Leno Expenses"
+ARG NEXT_PUBLIC_APP_NAME="Esper"
 ARG NEXT_PUBLIC_THEME_COLOR="#0f766e"
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_THEME_COLOR=$NEXT_PUBLIC_THEME_COLOR

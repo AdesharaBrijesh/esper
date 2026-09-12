@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   const themeColor = process.env.NEXT_PUBLIC_THEME_COLOR || "#0f766e";
   return {
     name: APP_NAME,
-    short_name: "Expenses",
+    short_name: APP_NAME,
     description: "Personal expense, trading and lending tracker.",
     id: "/",
     start_url: "/",
