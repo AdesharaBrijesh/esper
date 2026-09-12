@@ -1,18 +1,21 @@
 # Esper
 
-A self-hosted, mobile-first personal finance tracker for daily expenses, income, account transfers, trading capital (for yourself and your brother), and money borrowed from or lent to friends. Built as an installable PWA and deployed with Docker Compose on a home server.
+A self-hosted, mobile-first personal finance tracker for daily expenses, income, account transfers, recurring commitments (course fees, subscriptions, bills, EMIs, SIPs), credit cards, investments, trading capital (for yourself and your brother), and money borrowed from or lent to friends. Built as an installable PWA and deployed with Docker Compose on a home server.
 
 ## Features
 
 - **Daily money**: cash, UPI, bank and card expenses; income; account-to-account transfers.
-- **Accounts**: cash, bank, UPI, card, trading and other accounts, each owned by *Self* or *Brother*. Balances are always derived from the opening balance plus every transaction.
+- **Plans**: anything that repeats — school/college/bachelor's/master's fees, subscriptions, rent and utility bills, EMIs and SIPs. Set one up once and the whole schedule is generated, *past terms included*, so several years of fees can be entered in one go. See [Plans](#plans-fees-subscriptions-bills-emis-and-sips).
+- **Credit cards**: outstanding balance, credit limit, utilisation, spend this month and the next bill due date. Paying the bill is a transfer, so nothing is double-counted.
+- **Investments**: what you put in versus what it is worth, with gains derived from valuation snapshots you type in. No price feeds, no API keys, nothing to break.
+- **Accounts**: cash, bank, UPI, card, trading, investment and other accounts, each owned by *Self* or *Brother*. Balances are always derived from the opening balance plus every transaction.
 - **Trading module**: deposits, withdrawals, profit and loss per trading account, with capital and results reported per owner (Self / Brother / All).
 - **Borrow & lend**: people, loans with outstanding balances, partial and full repayments, "you owe" / "owed to you" overviews.
 - **Reports**: spending by category, monthly income vs expenses, owner breakdown, payment mode and cash vs online, trading summary, loan balances; presets and custom date ranges.
 - **Activity**: filterable, paginated history with search; edit and delete with confirmation; balances recalculate automatically.
-- **CSV export** of transactions (respecting filters), accounts and loans.
+- **CSV export** of transactions (respecting filters), accounts, loans and plans.
 - **PWA**: web manifest, icons, installable on Android Chrome and iOS Safari, offline fallback page, light and dark mode.
-- **Single-user auth**: bcrypt-hashed password, HTTP-only signed session cookie, route protection.
+- **Single-user auth**: bcrypt-hashed password, HTTP-only signed session cookie, route protection, brute-force lockout and a nonce-based Content Security Policy.
 
 ### Core design principle
 
@@ -24,12 +27,41 @@ The app distinguishes five kinds of money movement and never mixes them:
 | Transfer | Cash → Bank, Bank → Trading (deposit) | Moves between your accounts. Net worth unchanged. Never income or expense. |
 | Trading profit / loss | +₹3,000 / −₹2,000 | Changes the trading account balance. Reported in the trading summary, not in spending. |
 | Borrow / Lend | ₹5,000 from Rahul, ₹3,000 to Amit | Creates a loan with an outstanding balance. Repayments reduce it. Never income or expense. |
+| Investment contribution | ₹5,000 SIP into an index fund | A transfer into an investment account. Net worth unchanged; growth is recorded as a valuation, not as income. |
 
 All money is stored as `DECIMAL(14,2)` in PostgreSQL and handled with `decimal.js` in code. No floating point arithmetic touches financial values.
 
+### Plans: fees, subscriptions, bills, EMIs and SIPs
+
+A **plan** is a template (what, how much, how often, paid from where) plus a generated schedule of **instalments**. The rule that keeps it honest:
+
+> A plan never moves money. A *paid instalment* does — and it does so by creating an ordinary transaction.
+
+That single decision is why balances, reports and CSV exports need no special cases, and why undoing a payment can simply delete the transaction it created.
+
+| Kind | What it is for | Produces |
+| --- | --- | --- |
+| Fees | School, college, bachelor's, master's — usually a fixed number of terms | An expense |
+| Subscription | Netflix, Spotify, gym, cloud storage — renews until cancelled | An expense |
+| Bill | Rent, electricity, internet, phone | An expense |
+| EMI | Loan or purchase instalments with a known end date | An expense |
+| SIP | A recurring investment | A **transfer** into an investment account |
+
+**Entering past years.** Backdate the first due date and set the number of instalments — a B.Tech that started in July 2023 with 8 half-yearly terms generates all 8 immediately. On the plan screen, *Select N overdue* then *Mark paid* settles them in one action, and each payment is dated on **its own due date**, so past terms land in the right months in your reports instead of piling onto today.
+
+Instalments can be re-priced, skipped (a waived term, a paused subscription), or undone. Editing a plan's amount re-prices only what is still unpaid — it never rewrites what you actually paid last year. Fixed-length plans close themselves when nothing is pending; open-ended ones schedule a rolling year ahead and are extended with *Add 12 more*.
+
+### Credit cards
+
+A card is an ordinary account whose **negative balance is the amount owed**. Spending on it is a normal expense; paying the bill is a transfer from a bank account into the card. Set a credit limit and a due day on the account to get utilisation tracking and a bill reminder. No separate card ledger exists, so the card can never disagree with your transaction history.
+
+### Investments
+
+An investment account's balance is what you have put in (transfers in, less anything redeemed). Recording a **valuation** — the figure you read off your broker's app whenever you happen to look — gives the current worth, and the gain is simply the difference. Without a valuation a holding is shown at cost, which is the honest answer rather than zero.
+
 ## Tech stack
 
-Next.js 16 (App Router, Server Components, Server Actions, Route Handlers), TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Lucide icons, PostgreSQL 16, Prisma 7 (`@prisma/adapter-pg`), Zod 4, React Hook Form, Recharts, `jose` (session tokens), `bcryptjs`, Vitest.
+Next.js 16 (App Router, Server Components, Server Actions, Route Handlers, Proxy), TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Lucide icons, PostgreSQL 16, Prisma 7 (`@prisma/adapter-pg`), Zod 4, React Hook Form, Recharts, `jose` (session tokens), `bcryptjs`, Vitest.
 
 ## Local development
 
@@ -79,7 +111,9 @@ Sign in with `SEED_USER_EMAIL` / `SEED_USER_PASSWORD`. Optional: `npm run db:dem
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm test` | Unit tests for the financial logic (no database needed) |
-| `npm run test:integration` | Database-backed tests of the transaction service (needs `TEST_DATABASE_URL`) |
+| `npm run test:integration` | Database-backed tests of the transaction and plan services (needs `TEST_DATABASE_URL`) |
+| `npm run test:all` | Unit + integration |
+| `npm run reset-password` | Emergency password reset (see below) |
 | `npm run check` | typecheck + lint + test + build |
 | `npm run db:migrate` / `db:deploy` / `db:seed` / `db:studio` | Prisma helpers |
 | `npm run db:demo` | Sample data for an empty dev database |
@@ -192,6 +226,11 @@ gunzip -c backup.sql.gz | docker compose exec -T postgres psql -U "$POSTGRES_USE
 - **Person** – someone you borrow from or lend to.
 - **Loan** – `personId`, `direction` (BORROWED, LENT), `originalAmount`, `outstandingAmount`, `status` (ACTIVE, PAID). Outstanding is recomputed inside the same database transaction whenever a linked transaction changes.
 - **Transaction** – `type`, `amount`, `owner`, `paymentMode`, `transactionDate`, optional `categoryId`, `fromAccountId`, `toAccountId`, `loanId`, `notes`.
+- **Plan** – a recurring commitment: `kind` (FEE, SUBSCRIPTION, BILL, EMI, SIP, OTHER), `name`, `amount`, `frequency`, `startDate`, optional `endDate`/`totalCount`, the account it is paid from, and a category (or, for a SIP, the investment account it funds).
+- **Installment** – one dated amount within a plan: `sequence`, `dueDate`, `amount`, `status` (PENDING, PAID, SKIPPED) and the `transactionId` it created when paid. "Overdue" and "due soon" are derived from the date, never stored.
+- **Valuation** – a dated `value` for an investment account. One per account per day; recording again the same day replaces it.
+
+Account also carries `institution`, `last4`, and — for cards — `creditLimit`, `statementDay` and `dueDay`.
 
 Every transaction moves `amount` **from** `fromAccountId` (balance decreases) **to** `toAccountId` (balance increases); either side may be empty:
 
@@ -252,14 +291,31 @@ Dockerfile, docker-compose.yml, .dockerignore, .env.example, prisma.config.ts, p
 
 ## Security notes
 
-- Passwords hashed with bcrypt (cost 12). Login and password change are rate-limited only by your reverse proxy; put the app behind HTTPS.
+- Passwords hashed with bcrypt (cost 12).
+- **Brute-force protection**: login is rate-limited on both the client IP *and* the submitted email, with an escalating lockout (5 failures → 1 minute, doubling to a 30-minute cap). The email key matters because forwarded IP headers are spoofable unless a trusted proxy sets them. Password change is limited the same way, so a stolen session is not an oracle for the existing password. Counters are process-local and clear on restart, which is the right amount of machinery for a single-container, single-user app.
+- **Timing**: a failed login always spends one bcrypt comparison, even when no user matches, so response time does not reveal which emails exist.
+- **Content Security Policy**: `proxy.ts` issues a per-request nonce and Next stamps it onto every script tag; `script-src` is `'self' 'nonce-…' 'strict-dynamic'`, which is what actually stops injected script from running. `style-src` keeps `'unsafe-inline'` deliberately — Base UI positions popovers and Recharts sizes its SVG through inline style attributes that a nonce cannot cover, and injected CSS is a far smaller problem than injected JS. Set `CSP_MODE=basic` to drop the nonce, or `off` to disable it, if you ever add a third-party script that will not cooperate.
+- Also sent on every response: `X-Frame-Options: DENY` and `frame-ancestors 'none'` (clickjacking), `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, and HSTS unless `COOKIE_SECURE=false` marks the deployment as plain-HTTP LAN.
+- **Environment validation** runs at boot (`instrumentation.ts`). Production refuses to start on a missing, too-short or placeholder `AUTH_SECRET`, instead of failing on the first request that happens to need it.
+- The app is served `noindex` and ships a `robots.txt` that disallows everything.
 - Sessions are signed JWTs (HS256, `AUTH_SECRET`) in an HTTP-only, SameSite=Lax cookie valid for 30 days. Each token carries the user's `sessionVersion`; changing the password bumps it and signs out other devices.
 - `proxy.ts` redirects unauthenticated requests optimistically; the real check is `requireUser()` in every page and server action (data-access layer), so server functions cannot be called without a valid session.
 - All mutations are validated with Zod on the server; database errors are mapped to safe messages and never shown raw.
 - PostgreSQL is reachable only on the internal Docker network.
 - Redirect targets (`next`, `returnTo`) are validated with `lib/safe-path.ts` to prevent open-redirect tricks (`//evil.com`, `/\evil.com`).
 - CSV exports neutralise formula injection (cells starting with `=`, `+`, `-`, `@` are escaped).
-- Transaction create/update/delete run in a `Serializable` database transaction, so two concurrent repayments on the same loan cannot both succeed and overpay it.
+- Transaction create/update/delete, and every instalment write, run in a `Serializable` database transaction, so two concurrent repayments on the same loan cannot both succeed and overpay it.
+
+### If you forget your password
+
+There is no email reset in a self-hosted single-user app, so use the script:
+
+```bash
+npm run reset-password -- you@example.com "new-password"     # local
+docker compose exec app node_modules/.bin/tsx scripts/reset-password.ts you@example.com "new-password"
+```
+
+Omit the password and one is generated for you. Either way `sessionVersion` is bumped, signing out every device.
 
 ## Testing
 
@@ -268,7 +324,9 @@ npm test                    # pure logic: balances, loans, trading, reports, val
 npm run test:integration    # transaction service against a real PostgreSQL (TEST_DATABASE_URL)
 ```
 
-The integration suite covers expense/income/transfer effects, trading rules and owner checks, borrowing and lending with partial and full repayments, over-repayment rejection, editing and deleting with loan recalculation, and cross-user isolation.
+The integration suite covers expense/income/transfer effects, trading rules and owner checks, borrowing and lending with partial and full repayments, over-repayment rejection, editing and deleting with loan recalculation, and cross-user isolation. For plans it proves the contract the feature rests on: creating a plan moves no money, paying an instalment writes a real transaction and moves the balance by exactly that amount, a SIP produces a transfer rather than an expense, undoing a payment (or deleting its transaction from the Activity screen) returns the instalment to pending, editing a plan never rewrites paid history, and one user cannot touch another's instalments.
+
+CI runs both suites on every push, the integration one against a PostgreSQL service container (`.github/workflows/ci.yml`).
 
 ## Installing as an app
 
@@ -280,7 +338,9 @@ The service worker caches static assets and shows `/offline` when the network is
 ## Limitations and ideas for later
 
 - Single user in v1 (data model is multi-user ready; add sign-up and per-user settings).
-- No audit log, budgets, recurring transactions, attachments or multi-currency.
+- No audit log, budgets, attachments, CSV *import* or multi-currency.
 - Reports are computed on demand from transactions in the range (fine for personal volumes; add cached monthly rollups if it ever grows large).
 - Brother is an *owner label*, not a login; a future version could give him his own account with shared visibility.
-- Possible additions: budgets per category, recurring bills, receipts, per-account reconciliation ("mark balance as verified"), rate limiting on login.
+- Plans do not auto-post. Paying is deliberate, because an instalment that posts itself while a payment actually bounced is worse than one you confirm.
+- Investment valuations are entered by hand on purpose — a price feed is one more thing that can break or start charging.
+- Possible additions: budgets per category, receipts, CSV import, per-account reconciliation ("mark balance as verified"), push reminders for due instalments.
