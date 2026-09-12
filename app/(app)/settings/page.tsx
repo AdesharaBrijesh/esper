@@ -25,6 +25,10 @@ function Section({ title, description, children }: { title: string; description?
 
 const SHORTCUTS = [
   { href: "/accounts", label: "Accounts", hint: "Add, edit or archive accounts" },
+  { href: "/cards", label: "Cards", hint: "Outstanding, limits and bill due dates" },
+  { href: "/investments", label: "Investments", hint: "What you put in and what it is worth" },
+  { href: "/plans", label: "Plans", hint: "Fees, subscriptions, bills, EMIs and SIPs" },
+  { href: "/reports", label: "Reports", hint: "Spending, income and trends" },
   { href: "/categories", label: "Categories", hint: "Expense and income categories" },
   { href: "/loans", label: "People", hint: "Who you borrow from and lend to" },
   { href: "/trading", label: "Trading", hint: "Capital and results per owner" },
@@ -34,6 +38,7 @@ const EXPORTS = [
   { href: "/api/export/transactions", label: "Transactions" },
   { href: "/api/export/accounts", label: "Accounts" },
   { href: "/api/export/loans", label: "Loans" },
+  { href: "/api/export/plans", label: "Plans" },
 ];
 
 export default async function SettingsPage() {

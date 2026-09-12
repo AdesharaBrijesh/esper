@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, CheckCheck, Loader2, MinusCircle, RotateCcw } from "lucide-react";
@@ -263,6 +263,7 @@ export function InstallmentList({
       ) : null}
 
       <PayDialog
+        key={payTarget?.id ?? "none"}
         plan={plan}
         installment={payTarget}
         accounts={accounts}
@@ -305,21 +306,13 @@ function PayDialog({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [amount, setAmount] = useState("");
-  const [paidDate, setPaidDate] = useState("");
-  const [fromAccountId, setFromAccountId] = useState("");
+  // The caller remounts this component per instalment (via key), so seeding the fields
+  // here is enough — no effect syncing props into state, and the inputs stay clearable.
+  const [amount, setAmount] = useState(installment?.amount ?? "");
+  const [paidDate, setPaidDate] = useState(todayDateOnly());
+  const [fromAccountId, setFromAccountId] = useState(plan.fromAccountId ?? accounts[0]?.id ?? "");
 
   const open = installment !== null;
-
-  // Seed from the instalment each time one is picked. Keeping these as plain state
-  // (rather than falling back to the seed on every render) lets the field be cleared.
-  useEffect(() => {
-    if (!installment) return;
-    setError(null);
-    setAmount(installment.amount);
-    setPaidDate(todayDateOnly());
-    setFromAccountId(plan.fromAccountId ?? accounts[0]?.id ?? "");
-  }, [installment, plan.fromAccountId, accounts]);
 
   const onOpenChange = (next: boolean) => {
     if (!next) onClose();

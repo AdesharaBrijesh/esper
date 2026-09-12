@@ -13,11 +13,19 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-full flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors",
+        "press relative flex h-full flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium",
         active ? "text-primary" : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <Icon className={cn("size-5", active && "stroke-[2.5]")} aria-hidden />
+      {/* A short bar above the active tab reads faster than colour alone. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute top-0 h-0.5 w-8 rounded-full bg-primary transition-opacity duration-200",
+          active ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <Icon className={cn("size-5 transition-transform duration-200", active && "scale-110 stroke-[2.5]")} aria-hidden />
       {item.label}
     </Link>
   );
@@ -40,11 +48,17 @@ export function BottomNav() {
             href={ADD_NAV.href}
             aria-label="Add transaction"
             className={cn(
-              "-mt-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background transition-transform active:scale-95",
+              "-mt-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground",
+              "shadow-lg shadow-primary/30 ring-4 ring-background transition-transform duration-200",
+              "hover:scale-105 active:scale-95",
               onAdd && "bg-primary/90",
             )}
           >
-            <Plus className="size-7" strokeWidth={2.5} aria-hidden />
+            <Plus
+              className={cn("size-7 transition-transform duration-300", onAdd && "rotate-45")}
+              strokeWidth={2.5}
+              aria-hidden
+            />
           </Link>
         </div>
         {MOBILE_NAV.right.map((item) => (

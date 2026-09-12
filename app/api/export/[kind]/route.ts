@@ -4,19 +4,23 @@ import { toCsv } from "@/lib/csv";
 import { getTransactionsForExport } from "@/lib/data/transactions";
 import { getAccountsWithBalances } from "@/lib/data/accounts";
 import { getLoans } from "@/lib/data/loans";
+import { getPlans } from "@/lib/data/plans";
 import { parseTransactionFilters } from "@/lib/validations/filters";
 import {
   ACCOUNT_TYPE_LABELS,
   LOAN_DIRECTION_LABELS,
   OWNER_LABELS,
   PAYMENT_MODE_LABELS,
+  PLAN_FREQUENCY_LABELS,
+  PLAN_KIND_LABELS,
+  PLAN_STATUS_LABELS,
   TRANSACTION_TYPE_LABELS,
 } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-const KINDS = ["transactions", "accounts", "loans"] as const;
+const KINDS = ["transactions", "accounts", "loans", "plans"] as const;
 type Kind = (typeof KINDS)[number];
 
 function csvResponse(filename: string, csv: string) {
@@ -78,6 +82,49 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/export/[
         ]),
       ]);
       return csvResponse(`accounts-${stamp}.csv`, csv);
+    }
+
+    if (kind === "plans") {
+      const rows = await getPlans(user.id, { status: "ALL" });
+      const csv = toCsv([
+        [
+          "Name",
+          "Type",
+          "Provider",
+          "Amount (INR)",
+          "Frequency",
+          "Owner",
+          "Status",
+          "Start Date",
+          "End Date",
+          "Instalments",
+          "Paid",
+          "Pending",
+          "Paid (INR)",
+          "Remaining (INR)",
+          "Next Due",
+          "ID",
+        ],
+        ...rows.map((p) => [
+          p.name,
+          PLAN_KIND_LABELS[p.kind],
+          p.provider ?? "",
+          p.amount,
+          PLAN_FREQUENCY_LABELS[p.frequency],
+          OWNER_LABELS[p.owner],
+          PLAN_STATUS_LABELS[p.status],
+          p.startDate,
+          p.endDate ?? "",
+          p.progress.total,
+          p.progress.paid,
+          p.progress.pending,
+          p.progress.paidAmount,
+          p.progress.remainingAmount,
+          p.progress.nextDue?.dueDate ?? "",
+          p.id,
+        ]),
+      ]);
+      return csvResponse(`plans-${stamp}.csv`, csv);
     }
 
     const rows = await getLoans(user.id, { status: "ALL" });

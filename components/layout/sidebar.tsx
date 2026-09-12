@@ -25,7 +25,7 @@ export function Sidebar({ user }: { user: CurrentUser }) {
       <div className="px-4 pb-2">
         <Link
           href="/transactions/new"
-          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+          className="press flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
         >
           <Plus className="size-4" strokeWidth={2.5} aria-hidden />
           Add transaction
@@ -42,12 +42,15 @@ export function Sidebar({ user }: { user: CurrentUser }) {
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                "press relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
               )}
             >
+              {active ? (
+                <span aria-hidden className="absolute top-1/2 left-0 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+              ) : null}
               <Icon className="size-4.5" aria-hidden />
               {item.label}
             </Link>

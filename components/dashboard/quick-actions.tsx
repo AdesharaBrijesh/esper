@@ -19,7 +19,7 @@ export function QuickActions({ className }: { className?: string }) {
           <Link
             key={a.href}
             href={a.href}
-            className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border bg-card p-2 text-center text-xs font-medium transition-colors hover:bg-muted/60 active:scale-[0.98]"
+            className="press flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border bg-card p-2 text-center text-xs font-medium hover:bg-muted/60"
           >
             <span className={cn("flex size-10 items-center justify-center rounded-xl", a.className)}>
               <Icon className="size-5" strokeWidth={2.25} aria-hidden />

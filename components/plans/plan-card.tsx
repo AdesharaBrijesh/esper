@@ -23,8 +23,7 @@ export function PlanCard({ plan }: { plan: PlanDTO }) {
     <Link
       href={`/plans/${plan.id}`}
       className={cn(
-        "group flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-all",
-        "hover:border-primary/40 hover:shadow-sm active:scale-[0.995]",
+        "surface-interactive group flex flex-col gap-3 rounded-2xl border bg-card p-4",
         isCancelled && "opacity-60",
       )}
     >

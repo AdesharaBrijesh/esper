@@ -9,6 +9,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { TransactionList } from "@/components/shared/transaction-row";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { UpcomingDues } from "@/components/dashboard/upcoming-dues";
 import { SpendingDonut } from "@/components/charts/spending-donut";
 import { Button } from "@/components/ui/button";
 import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_LABELS, OWNER_LABELS } from "@/lib/constants";
@@ -85,6 +86,31 @@ export default async function DashboardPage({
           </section>
 
           <QuickActions />
+
+          {/* What is due next: the reason a fee deadline never gets forgotten. */}
+          <UpcomingDues installments={data.upcoming} />
+
+          {/* Cards & plans */}
+          <section className="grid grid-cols-2 gap-2">
+            <Link href="/cards" className="rounded-2xl border bg-card p-3.5 transition-colors hover:bg-muted/60">
+              <p className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                Card outstanding <ChevronRight className="size-3.5" aria-hidden />
+              </p>
+              <Money value={data.cards.outstanding} className="mt-1 block text-lg font-semibold" tone={Number(data.cards.outstanding) > 0 ? "expense" : "muted"} />
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {data.cards.utilisation !== null ? `${data.cards.utilisation}% of limit used` : `${data.cards.cards} card${data.cards.cards === 1 ? "" : "s"}`}
+              </p>
+            </Link>
+            <Link href="/investments" className="rounded-2xl border bg-card p-3.5 transition-colors hover:bg-muted/60">
+              <p className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                Investments <ChevronRight className="size-3.5" aria-hidden />
+              </p>
+              <Money value={data.investments.currentValue} className="mt-1 block text-lg font-semibold" />
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Gain <Money value={data.investments.gain} signed tone={Number(data.investments.gain) >= 0 ? "income" : "expense"} />
+              </p>
+            </Link>
+          </section>
 
           {/* Trading & loans */}
           <section className="grid grid-cols-2 gap-2">

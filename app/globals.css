@@ -67,19 +67,19 @@
   --card-foreground: oklch(0.17 0.02 240);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.17 0.02 240);
-  --primary: oklch(0.5 0.1 185);
+  --primary: oklch(0.52 0.13 184);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.96 0.005 200);
   --secondary-foreground: oklch(0.25 0.02 240);
   --muted: oklch(0.955 0.005 200);
   --muted-foreground: oklch(0.5 0.02 240);
-  --accent: oklch(0.95 0.02 185);
-  --accent-foreground: oklch(0.25 0.05 185);
+  --accent: oklch(0.945 0.038 184);
+  --accent-foreground: oklch(0.3 0.08 184);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.91 0.005 200);
   --input: oklch(0.9 0.005 200);
-  --ring: oklch(0.6 0.1 185);
-  --chart-1: oklch(0.5 0.1 185);
+  --ring: oklch(0.58 0.12 184);
+  --chart-1: oklch(0.52 0.13 184);
   --chart-2: oklch(0.62 0.17 150);
   --chart-3: oklch(0.6 0.2 25);
   --chart-4: oklch(0.6 0.15 250);
@@ -87,14 +87,14 @@
   --radius: 0.75rem;
   --sidebar: oklch(0.975 0.004 200);
   --sidebar-foreground: oklch(0.17 0.02 240);
-  --sidebar-primary: oklch(0.5 0.1 185);
+  --sidebar-primary: oklch(0.52 0.13 184);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0.02 185);
-  --sidebar-accent-foreground: oklch(0.25 0.05 185);
+  --sidebar-accent: oklch(0.945 0.038 184);
+  --sidebar-accent-foreground: oklch(0.3 0.08 184);
   --sidebar-border: oklch(0.91 0.005 200);
-  --sidebar-ring: oklch(0.6 0.1 185);
+  --sidebar-ring: oklch(0.58 0.12 184);
 
-  --income: oklch(0.55 0.16 150);
+  --income: oklch(0.55 0.17 150);
   --expense: oklch(0.58 0.2 25);
   --transfer: oklch(0.55 0.15 250);
   --trading: oklch(0.55 0.2 300);
@@ -108,28 +108,28 @@
   --card-foreground: oklch(0.96 0.005 200);
   --popover: oklch(0.2 0.015 240);
   --popover-foreground: oklch(0.96 0.005 200);
-  --primary: oklch(0.75 0.12 185);
+  --primary: oklch(0.78 0.14 184);
   --primary-foreground: oklch(0.15 0.03 185);
   --secondary: oklch(0.26 0.015 240);
   --secondary-foreground: oklch(0.96 0.005 200);
   --muted: oklch(0.25 0.015 240);
   --muted-foreground: oklch(0.7 0.015 240);
-  --accent: oklch(0.28 0.04 185);
+  --accent: oklch(0.3 0.06 184);
   --accent-foreground: oklch(0.9 0.05 185);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.65 0.1 185);
-  --chart-1: oklch(0.75 0.12 185);
+  --chart-1: oklch(0.78 0.14 184);
   --chart-2: oklch(0.72 0.17 150);
   --chart-3: oklch(0.7 0.19 25);
   --chart-4: oklch(0.7 0.15 250);
   --chart-5: oklch(0.8 0.16 70);
   --sidebar: oklch(0.18 0.015 240);
   --sidebar-foreground: oklch(0.96 0.005 200);
-  --sidebar-primary: oklch(0.75 0.12 185);
+  --sidebar-primary: oklch(0.78 0.14 184);
   --sidebar-primary-foreground: oklch(0.15 0.03 185);
-  --sidebar-accent: oklch(0.28 0.04 185);
+  --sidebar-accent: oklch(0.3 0.06 184);
   --sidebar-accent-foreground: oklch(0.9 0.05 185);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.65 0.1 185);
@@ -190,5 +190,71 @@
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Motion and touch feedback
+
+   A phone app feels solid when every tappable thing acknowledges the tap within
+   a frame or two. These are the two utilities that do that, kept small on
+   purpose: a press scale and a lift on hover for surfaces that lead somewhere.
+   --------------------------------------------------------------------------- */
+@utility press {
+  transition:
+    transform 140ms cubic-bezier(0.2, 0, 0.2, 1),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@utility surface-interactive {
+  transition:
+    transform 160ms cubic-bezier(0.2, 0, 0.2, 1),
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  &:hover {
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+    box-shadow: 0 1px 2px oklch(0 0 0 / 6%), 0 8px 20px -12px oklch(0 0 0 / 18%);
+  }
+  &:active {
+    transform: scale(0.995);
+  }
+}
+
+@layer base {
+  /* Money figures should never reflow as digits change width. */
+  .tabular,
+  input[inputmode="decimal"],
+  input[inputmode="numeric"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+
+  /* Keyboard focus stays obvious; pointer focus does not draw a ring. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /*
+   * Respect the system setting. Animation is decoration here — every transition
+   * above is feedback that the interface also conveys through colour and state.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
