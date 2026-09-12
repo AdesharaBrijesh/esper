@@ -56,6 +56,11 @@ export function toAccountDTO(a: AccountRow, balance: MoneyInput): AccountDTO {
     isActive: a.isActive,
     sortOrder: a.sortOrder,
     balance: moneyToString(balance),
+    institution: a.institution,
+    last4: a.last4,
+    creditLimit: a.creditLimit === null ? null : moneyToString(a.creditLimit),
+    statementDay: a.statementDay,
+    dueDay: a.dueDay,
   };
 }
 

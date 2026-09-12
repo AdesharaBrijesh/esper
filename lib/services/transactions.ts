@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { AccountType, CategoryType, LoanDirection, Owner, TransactionType } from "@/generated/prisma/enums";
 import { transactionSchema, type TransactionData } from "@/lib/validations/transaction";
 import {
+  isPortfolioAccount,
   LOAN_DIRECTION_FOR_TYPE,
   OWNER_LABELS,
   REPAYMENT_TYPE_FOR_DIRECTION,
@@ -79,10 +80,14 @@ function assertKind(account: AccountLite, kind: AccountKind, path: "fromAccountI
   if (kind === "TRADING" && account.type !== "TRADING") {
     throw fieldError(path, `${account.name} is not a trading account`);
   }
-  if (kind === "NON_TRADING" && account.type === "TRADING") {
+  // Portfolio accounts (trading, investment) hold money rather than spend it: they are
+  // funded and redeemed through transfers, and their results are recorded separately.
+  if (kind === "NON_TRADING" && isPortfolioAccount(account.type)) {
     throw fieldError(
       path,
-      `${account.name} is a trading account; use a Trading deposit/withdrawal/profit/loss (or a transfer) instead`,
+      account.type === "TRADING"
+        ? `${account.name} is a trading account; use a Trading deposit/withdrawal/profit/loss (or a transfer) instead`
+        : `${account.name} is an investment account; use a transfer to move money in or out, and record its worth with a valuation`,
     );
   }
 }
@@ -379,9 +384,19 @@ export async function deleteTransaction(userId: string, id: string): Promise<voi
         type: true,
         loanId: true,
         loan: { select: { id: true, _count: { select: { transactions: true } } } },
+        installment: { select: { id: true } },
       },
     });
     if (!existing) throw new NotFoundError("Transaction");
+
+    // A transaction created by paying a plan instalment: returning it to pending keeps
+    // the plan honest. The relation alone would only null the id and leave it "paid".
+    if (existing.installment) {
+      await tx.installment.update({
+        where: { id: existing.installment.id },
+        data: { status: "PENDING", paidDate: null, transactionId: null },
+      });
+    }
 
     const flow = TRANSACTION_FLOWS[existing.type];
 

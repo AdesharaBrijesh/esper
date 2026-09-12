@@ -6,6 +6,7 @@ import { parseOrThrow, revalidateAll, runAction } from "@/lib/actions/helpers";
 import { accountSchema, type AccountInput } from "@/lib/validations/account";
 import { AppError, NotFoundError } from "@/lib/errors";
 import { countAccountTransactions } from "@/lib/data/accounts";
+import { isPortfolioAccount } from "@/lib/constants";
 import type { ActionResult } from "@/lib/types";
 
 export async function createAccountAction(input: AccountInput): Promise<ActionResult<{ id: string }>> {
@@ -29,8 +30,10 @@ export async function updateAccountAction(id: string, input: AccountInput): Prom
     const existing = await prisma.account.findFirst({ where: { id, userId }, select: { id: true, type: true, owner: true } });
     if (!existing) throw new NotFoundError("Account");
     const used = existing.type !== data.type || existing.owner !== data.owner ? await countAccountTransactions(userId, id) : 0;
-    if (existing.type !== data.type && used > 0 && (existing.type === "TRADING" || data.type === "TRADING")) {
-      throw new AppError("Cannot change an account to/from Trading once it has transactions.");
+    // Portfolio accounts follow different flow rules, so switching an account in or out
+    // of one once it has history would retroactively invalidate those transactions.
+    if (existing.type !== data.type && used > 0 && (isPortfolioAccount(existing.type) || isPortfolioAccount(data.type))) {
+      throw new AppError("Cannot change an account to or from Trading/Investment once it has transactions.");
     }
     await prisma.$transaction(async (tx) => {
       await tx.account.update({ where: { id }, data });

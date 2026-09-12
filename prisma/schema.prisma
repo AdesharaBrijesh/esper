@@ -1,4 +1,4 @@
-// Leno Expenses – Prisma schema
+// Esper – Prisma schema
 // Money values are stored as DECIMAL(14,2). Never use JS floats for money.
 
 generator client {
@@ -22,6 +22,7 @@ enum AccountType {
   UPI
   CARD
   TRADING
+  INVESTMENT
   OTHER
 }
 
@@ -63,6 +64,39 @@ enum LoanStatus {
   PAID
 }
 
+/// What a recurring plan represents. Drives the transaction produced when an instalment
+/// is paid: SIP moves money into an investment account (a TRANSFER), everything else
+/// leaves an account for good (an EXPENSE).
+enum PlanKind {
+  FEE
+  SUBSCRIPTION
+  BILL
+  EMI
+  SIP
+  OTHER
+}
+
+enum PlanFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  ONE_TIME
+}
+
+enum PlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  SKIPPED
+}
+
 model User {
   id             String   @id @default(cuid())
   name           String
@@ -78,6 +112,9 @@ model User {
   transactions Transaction[]
   people       Person[]
   loans        Loan[]
+  plans        Plan[]
+  installments Installment[]
+  valuations   Valuation[]
 }
 
 model Account {
@@ -89,12 +126,26 @@ model Account {
   openingBalance Decimal     @default(0) @db.Decimal(14, 2)
   isActive       Boolean     @default(true)
   sortOrder      Int         @default(0)
+  /// Bank / card issuer / fund house. Display only.
+  institution    String?
+  /// Last 4 digits, so two cards can be told apart. Never store a full card number.
+  last4          String?
+  /// CARD only: sanctioned limit. Outstanding, utilisation and "available to spend" are
+  /// all derived from it plus the (negative) balance.
+  creditLimit    Decimal?    @db.Decimal(14, 2)
+  /// CARD only: day of month the statement is generated (1-31).
+  statementDay   Int?
+  /// CARD only: day of month the bill is due (1-31).
+  dueDay         Int?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  outgoing Transaction[] @relation("FromAccount")
-  incoming Transaction[] @relation("ToAccount")
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outgoing   Transaction[] @relation("FromAccount")
+  incoming   Transaction[] @relation("ToAccount")
+  planSource Plan[]        @relation("PlanFromAccount")
+  planTarget Plan[]        @relation("PlanToAccount")
+  valuations Valuation[]
 
   @@index([userId])
   @@index([userId, owner])
@@ -115,6 +166,7 @@ model Category {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  plans        Plan[]
 
   @@unique([userId, type, name])
   @@index([userId])
@@ -182,6 +234,8 @@ model Transaction {
   fromAccount Account?  @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: Restrict)
   toAccount   Account?  @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: Restrict)
   loan        Loan?     @relation(fields: [loanId], references: [id], onDelete: Restrict)
+  /// Set when this transaction was created by paying a plan instalment.
+  installment Installment?
 
   @@index([userId, transactionDate(sort: Desc), createdAt(sort: Desc)])
   @@index([userId, type])
@@ -191,4 +245,97 @@ model Transaction {
   @@index([toAccountId])
   @@index([categoryId])
   @@index([loanId])
+}
+
+/// A recurring obligation: course fees, a subscription, a utility bill, an EMI or a SIP.
+///
+/// A plan is a template plus a generated schedule of Installments. Nothing touches the
+/// ledger until an instalment is marked paid, which creates a real Transaction — so past
+/// years can be entered in one go and every balance still comes out right.
+model Plan {
+  id            String        @id @default(cuid())
+  userId        String
+  kind          PlanKind
+  name          String
+  /// School, university, card issuer, fund house, service.
+  provider      String?
+  /// Amount of a single instalment.
+  amount        Decimal       @db.Decimal(14, 2)
+  frequency     PlanFrequency
+  startDate     DateTime      @db.Date
+  /// Null for open-ended plans (a subscription that has not been cancelled).
+  endDate       DateTime?     @db.Date
+  /// Number of instalments when known (8 semesters, 24 EMIs). Null = open-ended.
+  totalCount    Int?
+  owner         Owner         @default(SELF)
+  paymentMode   PaymentMode   @default(OTHER)
+  /// Required for every kind except SIP, which moves money rather than spending it.
+  categoryId    String?
+  /// Account the money leaves.
+  fromAccountId String?
+  /// SIP only: the investment account the money lands in.
+  toAccountId   String?
+  /// Days before the due date that an instalment starts showing as "due soon".
+  remindDays    Int           @default(3)
+  status        PlanStatus    @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  fromAccount  Account?      @relation("PlanFromAccount", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  toAccount    Account?      @relation("PlanToAccount", fields: [toAccountId], references: [id], onDelete: Restrict)
+  installments Installment[]
+
+  @@index([userId, status])
+  @@index([userId, kind])
+}
+
+/// One dated amount within a plan. Paying it creates the Transaction it points at.
+model Installment {
+  id            String            @id @default(cuid())
+  userId        String
+  planId        String
+  /// 1-based position in the plan, so it can read "Semester 3 of 8".
+  sequence      Int
+  /// Overrides the generated label ("Semester 3", "Mar 2026").
+  label         String?
+  dueDate       DateTime          @db.Date
+  amount        Decimal           @db.Decimal(14, 2)
+  status        InstallmentStatus @default(PENDING)
+  paidDate      DateTime?         @db.Date
+  transactionId String?           @unique
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        Plan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@unique([planId, sequence])
+  @@index([userId, status, dueDate])
+  @@index([planId, dueDate])
+}
+
+/// A dated "what is it worth now" snapshot for an investment account.
+///
+/// The account balance already tracks what went in; this records market value, so the
+/// gain is simply value - balance. No price feed, no background jobs.
+model Valuation {
+  id        String   @id @default(cuid())
+  userId    String
+  accountId String
+  asOf      DateTime @db.Date
+  value     Decimal  @db.Decimal(14, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, asOf])
+  @@index([userId, accountId, asOf(sort: Desc)])
 }

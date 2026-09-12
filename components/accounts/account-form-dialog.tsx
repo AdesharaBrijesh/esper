@@ -15,16 +15,34 @@ import { SegmentedControl } from "@/components/shared/segmented-control";
 import { AmountInput } from "@/components/shared/amount-input";
 import { accountSchema, type AccountData, type AccountInput } from "@/lib/validations/account";
 import { createAccountAction, updateAccountAction } from "@/lib/actions/accounts";
-import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_LABELS, ACCOUNT_TYPES, OWNER_LABELS, OWNERS, type Owner } from "@/lib/constants";
+import {
+  ACCOUNT_TYPE_ICONS,
+  ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPES,
+  OWNER_LABELS,
+  OWNERS,
+  type AccountType,
+  type Owner,
+} from "@/lib/constants";
 import type { AccountDTO } from "@/lib/types";
+
+/** Card and investment accounts carry extra fields; everything else keeps the short form. */
+function institutionLabel(type: AccountType): string {
+  if (type === "CARD") return "Issuer";
+  if (type === "INVESTMENT") return "Fund house / platform";
+  return "Bank or provider";
+}
 
 export function AccountFormDialog({
   account,
+  defaultType,
   triggerLabel,
   triggerVariant = "default",
   triggerClassName,
 }: {
   account?: AccountDTO;
+  /** Pre-selects a type when opened from the Cards or Investments screen. */
+  defaultType?: AccountType;
   triggerLabel?: string;
   triggerVariant?: "default" | "outline" | "ghost" | "secondary";
   triggerClassName?: string;
@@ -35,30 +53,34 @@ export function AccountFormDialog({
   const [formError, setFormError] = useState<string | null>(null);
   const isEdit = !!account;
 
+  const initial = (): AccountInput => ({
+    name: account?.name ?? "",
+    type: account?.type ?? defaultType ?? "CASH",
+    owner: account?.owner ?? "SELF",
+    openingBalance: account?.openingBalance ?? "",
+    isActive: account?.isActive ?? true,
+    institution: account?.institution ?? "",
+    last4: account?.last4 ?? "",
+    creditLimit: account?.creditLimit ?? "",
+    statementDay: account?.statementDay ?? "",
+    dueDay: account?.dueDay ?? "",
+  });
+
   const form = useForm<AccountInput, unknown, AccountData>({
     resolver: zodResolver(accountSchema),
-    defaultValues: {
-      name: account?.name ?? "",
-      type: account?.type ?? "CASH",
-      owner: account?.owner ?? "SELF",
-      openingBalance: account?.openingBalance ?? "",
-      isActive: account?.isActive ?? true,
-    },
+    defaultValues: initial(),
   });
   const { register, handleSubmit, setValue, watch, setError, formState, reset } = form;
   const owner = watch("owner") as Owner;
+  const type = watch("type") as AccountType;
+  const isCard = type === "CARD";
+  const isInvestment = type === "INVESTMENT";
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
       setFormError(null);
-      reset({
-        name: account?.name ?? "",
-        type: account?.type ?? "CASH",
-        owner: account?.owner ?? "SELF",
-        openingBalance: account?.openingBalance ?? "",
-        isActive: account?.isActive ?? true,
-      });
+      reset(initial());
     }
   };
 
@@ -112,11 +134,74 @@ export function AccountFormDialog({
                 onChange={(v) => setValue("owner", v, { shouldValidate: true })}
               />
             </Field>
+
+            {isCard || isInvestment ? (
+              <Field id="acc-institution" label={institutionLabel(type)} error={formState.errors.institution?.message}>
+                <Input
+                  id="acc-institution"
+                  placeholder={isCard ? "e.g. HDFC Bank" : "e.g. Zerodha Coin"}
+                  className="h-11 rounded-xl"
+                  {...register("institution")}
+                />
+              </Field>
+            ) : null}
+
+            {isCard ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field id="acc-last4" label="Last 4 digits" error={formState.errors.last4?.message}>
+                    <Input
+                      id="acc-last4"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="1234"
+                      className="h-11 rounded-xl"
+                      {...register("last4")}
+                    />
+                  </Field>
+                  <Field id="acc-limit" label="Credit limit" error={formState.errors.creditLimit?.message}>
+                    <AmountInput id="acc-limit" size="default" placeholder="0" inputMode="decimal" {...register("creditLimit")} />
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field
+                    id="acc-statement"
+                    label="Statement day"
+                    error={formState.errors.statementDay?.message}
+                    hint="Day of month"
+                  >
+                    <Input
+                      id="acc-statement"
+                      inputMode="numeric"
+                      placeholder="e.g. 18"
+                      className="h-11 rounded-xl"
+                      {...register("statementDay")}
+                    />
+                  </Field>
+                  <Field id="acc-due" label="Bill due day" error={formState.errors.dueDay?.message} hint="Day of month">
+                    <Input
+                      id="acc-due"
+                      inputMode="numeric"
+                      placeholder="e.g. 5"
+                      className="h-11 rounded-xl"
+                      {...register("dueDay")}
+                    />
+                  </Field>
+                </div>
+              </>
+            ) : null}
+
             <Field
               id="acc-opening"
               label="Opening balance"
               error={formState.errors.openingBalance?.message}
-              hint="Balance before any transaction was recorded. Negative allowed (e.g. credit card)."
+              hint={
+                isCard
+                  ? "What you already owed on this card, as a negative number (e.g. -12000). Leave 0 if starting fresh."
+                  : isInvestment
+                    ? "What you had already invested here before tracking started."
+                    : "Balance before any transaction was recorded."
+              }
             >
               <AmountInput id="acc-opening" size="default" placeholder="0" inputMode="text" {...register("openingBalance")} />
             </Field>

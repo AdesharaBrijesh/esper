@@ -5,16 +5,32 @@
 import type {
   AccountType,
   CategoryType,
+  InstallmentStatus,
   LoanDirection,
   LoanStatus,
   Owner,
   PaymentMode,
+  PlanFrequency,
+  PlanKind,
+  PlanStatus,
   TransactionType,
 } from "@/generated/prisma/enums";
 
-export type { AccountType, CategoryType, LoanDirection, LoanStatus, Owner, PaymentMode, TransactionType };
+export type {
+  AccountType,
+  CategoryType,
+  InstallmentStatus,
+  LoanDirection,
+  LoanStatus,
+  Owner,
+  PaymentMode,
+  PlanFrequency,
+  PlanKind,
+  PlanStatus,
+  TransactionType,
+};
 
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Leno Expenses";
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Esper";
 
 // ---------------------------------------------------------------------------
 // Owners
@@ -37,13 +53,14 @@ export function parseOwnerFilter(value: string | string[] | undefined): OwnerFil
 // ---------------------------------------------------------------------------
 // Accounts
 // ---------------------------------------------------------------------------
-export const ACCOUNT_TYPES = ["CASH", "BANK", "UPI", "CARD", "TRADING", "OTHER"] as const satisfies readonly AccountType[];
+export const ACCOUNT_TYPES = ["CASH", "BANK", "UPI", "CARD", "TRADING", "INVESTMENT", "OTHER"] as const satisfies readonly AccountType[];
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   CASH: "Cash",
   BANK: "Bank",
   UPI: "UPI",
   CARD: "Card",
   TRADING: "Trading",
+  INVESTMENT: "Investment",
   OTHER: "Other",
 };
 export const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
@@ -52,6 +69,7 @@ export const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
   UPI: "📱",
   CARD: "💳",
   TRADING: "📈",
+  INVESTMENT: "📊",
   OTHER: "🗂️",
 };
 /** Default payment mode implied by an account type. */
@@ -61,6 +79,7 @@ export const ACCOUNT_TYPE_PAYMENT_MODE: Record<AccountType, PaymentMode> = {
   UPI: "UPI",
   CARD: "CARD",
   TRADING: "TRANSFER",
+  INVESTMENT: "TRANSFER",
   OTHER: "OTHER",
 };
 
@@ -280,6 +299,142 @@ export const REPAYMENT_TYPE_FOR_DIRECTION: Record<LoanDirection, TransactionType
   LENT: "LENT_REPAYMENT",
 };
 
-export const SESSION_COOKIE_NAME = "leno_session";
+export const SESSION_COOKIE_NAME = "esper_session";
 export const SESSION_DURATION_DAYS = 30;
 export const PAGE_SIZE = 30;
+
+// ---------------------------------------------------------------------------
+// Portfolio accounts
+// ---------------------------------------------------------------------------
+/**
+ * Accounts that hold money rather than spend it. You never pay for lunch straight out
+ * of a mutual fund: money is transferred in and out, and results are recorded
+ * separately (trading P&L, investment valuations). Keeping them out of the plain
+ * expense/income flows is what stops the trading and investment summaries from
+ * disagreeing with the ledger.
+ */
+export const PORTFOLIO_ACCOUNT_TYPES = ["TRADING", "INVESTMENT"] as const satisfies readonly AccountType[];
+
+export function isPortfolioAccount(type: AccountType): boolean {
+  return type === "TRADING" || type === "INVESTMENT";
+}
+
+// ---------------------------------------------------------------------------
+// Plans (fees, subscriptions, bills, EMIs, SIPs)
+// ---------------------------------------------------------------------------
+export const PLAN_KINDS = ["FEE", "SUBSCRIPTION", "BILL", "EMI", "SIP", "OTHER"] as const satisfies readonly PlanKind[];
+
+export const PLAN_KIND_LABELS: Record<PlanKind, string> = {
+  FEE: "Fees",
+  SUBSCRIPTION: "Subscription",
+  BILL: "Bill",
+  EMI: "EMI",
+  SIP: "SIP",
+  OTHER: "Other",
+};
+
+export const PLAN_KIND_ICONS: Record<PlanKind, string> = {
+  FEE: "🎓",
+  SUBSCRIPTION: "🔁",
+  BILL: "🧾",
+  EMI: "🏠",
+  SIP: "🌱",
+  OTHER: "📌",
+};
+
+export const PLAN_KIND_HINTS: Record<PlanKind, string> = {
+  FEE: "School, college, bachelor's or master's fees — usually a fixed number of terms.",
+  SUBSCRIPTION: "Netflix, Spotify, gym, cloud storage — renews until you cancel.",
+  BILL: "Rent, electricity, internet, phone — recurring but variable.",
+  EMI: "Loan or purchase instalments with a known end date.",
+  SIP: "A recurring investment. Moves money into an investment account instead of spending it.",
+  OTHER: "Anything else that repeats on a schedule.",
+};
+
+/**
+ * The transaction a paid instalment produces. A SIP moves money into an investment
+ * account (net worth unchanged); everything else is money genuinely spent.
+ */
+export const PLAN_TRANSACTION_TYPE: Record<PlanKind, TransactionType> = {
+  FEE: "EXPENSE",
+  SUBSCRIPTION: "EXPENSE",
+  BILL: "EXPENSE",
+  EMI: "EXPENSE",
+  SIP: "TRANSFER",
+  OTHER: "EXPENSE",
+};
+
+export const PLAN_FREQUENCIES = [
+  "WEEKLY",
+  "MONTHLY",
+  "QUARTERLY",
+  "HALF_YEARLY",
+  "YEARLY",
+  "ONE_TIME",
+] as const satisfies readonly PlanFrequency[];
+
+export const PLAN_FREQUENCY_LABELS: Record<PlanFrequency, string> = {
+  WEEKLY: "Weekly",
+  MONTHLY: "Monthly",
+  QUARTERLY: "Quarterly",
+  HALF_YEARLY: "Half-yearly",
+  YEARLY: "Yearly",
+  ONE_TIME: "One-time",
+};
+
+/** Months between instalments. WEEKLY is handled separately (7 days). */
+export const PLAN_FREQUENCY_MONTHS: Record<PlanFrequency, number> = {
+  WEEKLY: 0,
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  HALF_YEARLY: 6,
+  YEARLY: 12,
+  ONE_TIME: 0,
+};
+
+/** What one instalment is called, for labels like "Semester 3 of 8". */
+export const PLAN_TERM_NOUN: Record<PlanFrequency, string> = {
+  WEEKLY: "Week",
+  MONTHLY: "Month",
+  QUARTERLY: "Quarter",
+  HALF_YEARLY: "Term",
+  YEARLY: "Year",
+  ONE_TIME: "Payment",
+};
+
+export const PLAN_STATUSES = ["ACTIVE", "COMPLETED", "CANCELLED"] as const satisfies readonly PlanStatus[];
+export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
+  ACTIVE: "Active",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+export const INSTALLMENT_STATUSES = ["PENDING", "PAID", "SKIPPED"] as const satisfies readonly InstallmentStatus[];
+export const INSTALLMENT_STATUS_LABELS: Record<InstallmentStatus, string> = {
+  PENDING: "Pending",
+  PAID: "Paid",
+  SKIPPED: "Skipped",
+};
+
+/** Derived, not stored: a PENDING instalment whose due date has passed reads as overdue. */
+export type InstallmentView = "PAID" | "SKIPPED" | "OVERDUE" | "DUE_SOON" | "UPCOMING";
+export const INSTALLMENT_VIEW_LABELS: Record<InstallmentView, string> = {
+  PAID: "Paid",
+  SKIPPED: "Skipped",
+  OVERDUE: "Overdue",
+  DUE_SOON: "Due soon",
+  UPCOMING: "Upcoming",
+};
+
+/** Hard cap on generated instalments, so an open-ended plan cannot run away. */
+export const MAX_INSTALLMENTS = 240;
+
+/** How far ahead open-ended plans (subscriptions) schedule instalments. */
+export const OPEN_ENDED_MONTHS_AHEAD = 12;
+
+// ---------------------------------------------------------------------------
+// Credit cards
+// ---------------------------------------------------------------------------
+/** Utilisation above this is flagged; the usual advice is to stay under 30%. */
+export const CARD_UTILISATION_WARN = 30;
+export const CARD_UTILISATION_DANGER = 75;
