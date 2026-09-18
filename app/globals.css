@@ -175,6 +175,21 @@
       font-size: 16px;
     }
   }
+  /* Native <select> popups are OS-rendered and largely ignore page CSS, but
+     Chromium reliably honours an explicit background/color on option/optgroup
+     even when it ignores everything else — `color-scheme` alone isn't enough
+     contrast against our custom theme colors, so set these directly. */
+  select {
+    color: var(--foreground);
+  }
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+  select option:disabled {
+    color: var(--muted-foreground);
+  }
 }
 
 @utility pb-safe {

@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+### Added
+
+- **Bank statement import**: upload a CSV or PDF statement (`/transactions/import`), get every row
+  auto-categorised against your own categories (free, rule-based keyword matching — no API key, no
+  AI cost), review and fix any row on screen, then approve to create the transactions in one go.
+  - CSV: tolerant of common column-name variants (Debit/Credit pair, or a single signed/typed
+    Amount column) and several date formats.
+  - PDF: text-based extraction (genuine bank PDFs only, not scanned images). Two heuristics, in
+    order of confidence — an explicit Dr/Cr marker next to an amount, or a running-balance delta
+    when no marker exists. Skips any line it can't confidently read rather than guess a direction.
+  - Duplicate detection: rows matching an existing transaction on this account (same date +
+    amount) are flagged and excluded by default, so re-uploading an overlapping statement doesn't
+    double-count.
+  - Only creates expenses and income — a statement alone can't tell transfers, loans or trading
+    apart, so those still go through the normal add-transaction flow.
+  - 24 unit tests covering CSV column variants, date formats, the PDF heuristics, and
+    categorisation, plus a full service-level smoke test (parse → categorise → create → duplicate
+    check → cleanup) against a real database.
+
+### Fixed
+
+- Native `<select>` dropdown options were unreadable (very low contrast) in dark mode — Chromium's
+  option/optgroup popup mostly ignores page CSS and `color-scheme` alone isn't enough against a
+  custom theme. Set `background-color`/`color` on `select`, `option` and `optgroup` directly, which
+  Chromium does honour.
+
 ### Hosting
 
 - Moved the live deployment from a self-hosted homeserver (unreliable power) to Vercel + Neon,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, Upload } from "lucide-react";
 import { requireUser } from "@/lib/auth/dal";
 import { listTransactions } from "@/lib/data/transactions";
 import { getAccountsWithBalances } from "@/lib/data/accounts";
@@ -41,6 +41,10 @@ export default async function TransactionsPage({
         description={`${page.total} transaction${page.total === 1 ? "" : "s"}${hasFilters ? " match your filters" : ""}`}
         actions={
           <>
+            <Button variant="outline" size="lg" className="h-10 rounded-xl" render={<Link href="/transactions/import" />}>
+              <Upload className="size-4" aria-hidden />
+              <span className="hidden sm:inline">Import</span>
+            </Button>
             <Button variant="outline" size="lg" className="h-10 rounded-xl" render={<a href={exportHref} download />}>
               <Download className="size-4" aria-hidden />
               <span className="hidden sm:inline">Export CSV</span>
