@@ -41,7 +41,7 @@ export default async function NewTransactionPage({ searchParams }: { searchParam
   };
 
   return (
-    <div className="mx-auto w-full max-w-xl">
+    <div className="mx-auto w-full max-w-xl lg:max-w-2xl">
       <PageHeader title="Add transaction" backHref={returnTo} />
       <TransactionForm mode="create" accounts={accounts} categories={categories} people={people} loans={loans} prefill={prefill} />
     </div>

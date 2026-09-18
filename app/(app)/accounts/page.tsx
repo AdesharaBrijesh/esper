@@ -55,12 +55,13 @@ export default async function AccountsPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 lg:gap-3">
             <StatCard label="Net worth" value={netWorthOf(active, "ALL")} compact />
             <StatCard label="Self" value={netWorthOf(active, "SELF")} compact />
             <StatCard label="Brother" value={netWorthOf(active, "BROTHER")} compact />
           </div>
 
+          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
           {OWNERS.map((owner) => {
             const list = active.filter((a) => a.owner === owner);
             if (list.length === 0) return null;
@@ -78,6 +79,7 @@ export default async function AccountsPage() {
               </section>
             );
           })}
+          </div>
 
           {archived.length > 0 ? (
             <details className="rounded-2xl border bg-card p-3">

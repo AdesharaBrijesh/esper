@@ -40,7 +40,7 @@ export default async function CardsPage({ searchParams }: PageProps<"/cards">) {
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               label="Total outstanding"
               value={totals.outstanding}
@@ -61,7 +61,7 @@ export default async function CardsPage({ searchParams }: PageProps<"/cards">) {
             </p>
           ) : null}
 
-          <ul className="grid gap-3 md:grid-cols-2">
+          <ul className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {cards.map((card) => (
               <li key={card.id}>
                 <CardTile card={card} />

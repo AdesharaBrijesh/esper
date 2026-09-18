@@ -48,6 +48,7 @@ All notable changes to this project are documented here.
 - Renamed to **Esper**. On first deploy this signs out every device once (the session cookie name changed), resets remembered accounts/categories, and forces one service-worker re-cache. Database names are untouched.
 - Sharper palette, a press-feedback and hover-lift motion system, an active indicator on the navigation, and `prefers-reduced-motion` support throughout.
 - Bottom navigation reorganised around four slots: Home, Activity, Plans and More.
+- Wider layouts on desktop (lg/xl/2xl breakpoints) for Accounts, Settings, the app shell and sidebar; removed the unused create-next-app placeholder icons from `public/`.
 
 ### Tests
 

@@ -10,12 +10,23 @@ import { PasswordForm } from "@/components/settings/password-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Settings" };
 
-function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function Section({
+  title,
+  description,
+  className,
+  children,
+}: {
+  title: string;
+  description?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-2xl border bg-card p-4">
+    <section className={cn("rounded-2xl border bg-card p-4", className)}>
       <h2 className="text-base font-semibold">{title}</h2>
       {description ? <p className="mb-3 text-xs text-muted-foreground">{description}</p> : <div className="mb-3" />}
       {children}
@@ -51,8 +62,8 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader title="Settings" />
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
+      <PageHeader title="Settings" className="lg:col-span-2" />
 
       <Section title="Profile">
         <ProfileForm name={user.name} email={user.email} />
@@ -69,8 +80,8 @@ export default async function SettingsPage() {
         </div>
       </Section>
 
-      <Section title="Manage">
-        <ul className="-mx-2 flex flex-col">
+      <Section title="Manage" className="lg:col-span-2">
+        <ul className="-mx-2 flex flex-col sm:grid sm:grid-cols-2 xl:grid-cols-3">
           {SHORTCUTS.map((s) => (
             <li key={s.href}>
               <Link href={s.href} className="flex h-12 items-center gap-3 rounded-xl px-2 transition-colors hover:bg-muted/60">

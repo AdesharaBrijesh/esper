@@ -89,7 +89,7 @@ export default async function TradingPage({
           </nav>
           {owner === "ALL" ? <p className="-mt-3 text-xs text-muted-foreground">Quick actions default to Self; change the owner in the form.</p> : null}
 
-          <section className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 2xl:grid-cols-6">
             <StatCard label="Total deposits" value={s.deposits} compact />
             <StatCard label="Total withdrawals" value={s.withdrawals} compact />
             <StatCard label="Net invested" value={s.netInvested} hint="deposits − withdrawals" compact />

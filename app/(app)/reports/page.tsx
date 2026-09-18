@@ -100,7 +100,7 @@ export default async function ReportsPage({
       </Section>
 
       <Section title="Owner breakdown" description={owner === "ALL" ? "Self vs Brother." : `Showing ${OWNER_LABELS[owner]} only – switch to All to compare.`}>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
           {data.owners
             .filter((o) => owner === "ALL" || o.owner === owner)
             .map((o) => (
@@ -166,7 +166,7 @@ export default async function ReportsPage({
           </Link>
         }
       >
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-3 2xl:grid-cols-6">
           {(["SELF", "BROTHER", "ALL"] as const).map((o) => {
             const t = data.trading[o];
             return (

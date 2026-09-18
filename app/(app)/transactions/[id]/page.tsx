@@ -57,7 +57,7 @@ export default async function TransactionDetailPage({
   ];
 
   return (
-    <div className="mx-auto w-full max-w-xl">
+    <div className="mx-auto w-full max-w-xl lg:max-w-2xl">
       <PageHeader title="Transaction" backHref={returnTo} actions={<DeleteTransactionButton id={t.id} returnTo={returnTo} />} />
 
       <section className="mb-6 rounded-2xl border bg-card p-4">

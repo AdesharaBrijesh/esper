@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function Sidebar({ user }: { user: CurrentUser }) {
   const pathname = usePathname();
   return (
-    <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
+    <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex 2xl:w-72">
       <div className="flex items-center gap-2.5 px-5 pt-6 pb-4">
         <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-lg text-primary-foreground">₹</div>
         <div className="min-w-0">

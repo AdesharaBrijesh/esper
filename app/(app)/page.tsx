@@ -61,8 +61,8 @@ export default async function DashboardPage({
         />
       ) : null}
 
-      <div className="grid gap-5 md:grid-cols-5">
-        <div className="flex flex-col gap-5 md:col-span-3">
+      <div className="grid gap-5 lg:grid-cols-5">
+        <div className="flex flex-col gap-5 lg:col-span-3">
           {/* Net worth */}
           <section className="rounded-3xl bg-primary p-5 text-primary-foreground shadow-md shadow-primary/20">
             <p className="text-sm/5 opacity-85">Total net worth · {owner === "ALL" ? "All" : OWNER_LABELS[owner]}</p>
@@ -78,7 +78,7 @@ export default async function DashboardPage({
               <h2 className="text-base font-semibold">This month</h2>
               <span className="text-xs text-muted-foreground">{monthLabel}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 lg:gap-3">
               <StatCard label="Income" value={data.month.income} tone="income" compact />
               <StatCard label="Expenses" value={data.month.expense} tone="expense" compact />
               <StatCard label="Net" value={data.month.net} tone="auto" compact />
@@ -137,7 +137,7 @@ export default async function DashboardPage({
           </section>
         </div>
 
-        <div className="flex flex-col gap-5 md:col-span-2">
+        <div className="flex flex-col gap-5 lg:col-span-2">
           {/* Accounts */}
           <section className="rounded-2xl border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">

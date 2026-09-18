@@ -58,13 +58,13 @@ export default async function LoansPage() {
         actions={<PersonFormDialog />}
       />
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 lg:gap-3">
         <StatCard label="You owe" value={overview.youOwe} tone="expense" compact />
         <StatCard label="Owed to you" value={overview.owedToYou} tone="income" compact />
         <StatCard label="Net" value={overview.net} tone="auto" compact hint={Number(overview.net) >= 0 ? "in your favour" : "you owe more"} />
       </div>
 
-      <nav aria-label="Quick actions" className="grid grid-cols-2 gap-2">
+      <nav aria-label="Quick actions" className="grid grid-cols-2 gap-2 lg:max-w-md">
         <Button size="lg" className="h-12 rounded-xl bg-expense/10 text-expense hover:bg-expense/20" variant="secondary" render={<Link href="/transactions/new?type=BORROW&returnTo=/loans" />}>
           <HandCoins className="size-4" aria-hidden />
           Borrow money

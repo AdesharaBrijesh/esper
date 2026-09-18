@@ -58,7 +58,7 @@ export default async function PlansPage({ searchParams }: PageProps<"/plans">) {
         actions={newPlanButton}
       />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Per month"
           value={totals.monthlyCommitment}
@@ -71,23 +71,23 @@ export default async function PlansPage({ searchParams }: PageProps<"/plans">) {
           hint="Across every active plan"
           icon="📌"
         />
-      </div>
 
-      {totals.overdueCount > 0 || totals.dueSoonCount > 0 ? (
-        <div className="flex flex-col gap-2 rounded-2xl border bg-card p-4">
-          {totals.overdueCount > 0 ? (
-            <p className="text-sm font-medium text-expense">
-              {totals.overdueCount} instalment{totals.overdueCount === 1 ? "" : "s"} overdue ·{" "}
-              <Money value={totals.overdueAmount} tone="expense" />
-            </p>
-          ) : null}
-          {totals.dueSoonCount > 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {totals.dueSoonCount} due soon · <Money value={totals.dueSoonAmount} className="text-foreground" />
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+        {totals.overdueCount > 0 || totals.dueSoonCount > 0 ? (
+          <div className="col-span-2 flex flex-col gap-2 rounded-2xl border bg-card p-4">
+            {totals.overdueCount > 0 ? (
+              <p className="text-sm font-medium text-expense">
+                {totals.overdueCount} instalment{totals.overdueCount === 1 ? "" : "s"} overdue ·{" "}
+                <Money value={totals.overdueAmount} tone="expense" />
+              </p>
+            ) : null}
+            {totals.dueSoonCount > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {totals.dueSoonCount} due soon · <Money value={totals.dueSoonAmount} className="text-foreground" />
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <PlanFilters kind={kind} status={status} owner={owner} />
 
@@ -99,7 +99,7 @@ export default async function PlansPage({ searchParams }: PageProps<"/plans">) {
           action={newPlanButton}
         />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
           {plans.map((plan) => (
             <li key={plan.id}>
               <PlanCard plan={plan} />

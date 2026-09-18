@@ -52,7 +52,7 @@ export default async function InvestmentsPage({ searchParams }: PageProps<"/inve
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard label="Invested" value={totals.invested} hint={`${totals.accounts} holdings`} icon="📥" />
             <StatCard
               label="Current value"
@@ -60,32 +60,32 @@ export default async function InvestmentsPage({ searchParams }: PageProps<"/inve
               hint={totals.partiallyValued ? "Some holdings valued at cost" : "All holdings valued"}
               icon="📊"
             />
-          </div>
 
-          <div className="rounded-2xl border bg-card p-4">
-            <p className="text-xs font-medium text-muted-foreground">Total gain</p>
-            <div className="mt-1 flex flex-wrap items-baseline gap-2">
-              <Money
-                value={totals.gain}
-                signed
-                tone={Number(totals.gain) >= 0 ? "income" : "expense"}
-                className="text-2xl font-semibold"
-              />
-              {totals.returnPercent !== null ? (
-                <span
-                  className={cn(
-                    "text-sm font-medium",
-                    totals.returnPercent >= 0 ? "text-income" : "text-expense",
-                  )}
-                >
-                  {totals.returnPercent >= 0 ? "+" : ""}
-                  {totals.returnPercent}%
-                </span>
-              ) : null}
+            <div className="col-span-2 rounded-2xl border bg-card p-4">
+              <p className="text-xs font-medium text-muted-foreground">Total gain</p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                <Money
+                  value={totals.gain}
+                  signed
+                  tone={Number(totals.gain) >= 0 ? "income" : "expense"}
+                  className="text-2xl font-semibold"
+                />
+                {totals.returnPercent !== null ? (
+                  <span
+                    className={cn(
+                      "text-sm font-medium",
+                      totals.returnPercent >= 0 ? "text-income" : "text-expense",
+                    )}
+                  >
+                    {totals.returnPercent >= 0 ? "+" : ""}
+                    {totals.returnPercent}%
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
 
-          <ul className="grid gap-3 md:grid-cols-2">
+          <ul className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
             {active.map((investment) => (
               <li key={investment.id}>
                 <article className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
