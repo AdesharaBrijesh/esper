@@ -48,3 +48,6 @@ next-env.d.ts
 
 # backups
 /backups/
+
+# site-specific compose overrides (e.g. attaching to a host's reverse-proxy network)
+docker-compose.override.yml

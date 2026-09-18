@@ -42,6 +42,9 @@ All notable changes to this project are documented here.
 - The integration runner used to exit 0 when `TEST_DATABASE_URL` was unset, so "tests passed" could mean the suite never ran. It now fails in CI.
 - Backups are verified before being trusted. The dump was previously redirected straight into the final file, which creates it before `pg_dump` runs and leaves a truncated archive looking exactly like a good one; it now writes to a temp file, checks the gzip, the size and the `pg_dump` header, then moves it into place.
 - Container logs are capped, so unbounded `json-file` logs cannot fill the server's disk.
+- Continuous deployment: a `deploy` job in CI redeploys to the homeserver automatically after every push to `main` that passes the other jobs, over SSH via an ephemeral Tailscale-joined runner and a key restricted to one forced command (`scripts/deploy.sh`). See README → "Continuous deployment".
+- `docker-compose.override.yml` is now the documented, gitignored place for site-specific Compose tweaks (e.g. attaching to an existing reverse-proxy network), so `deploy.sh`'s `git reset --hard` can never clobber a server's local configuration.
+- First live deployment: running at `esper.brijuice.dev` via an existing Cloudflare Tunnel, with `COOKIE_SECURE` enabled now that there's a real HTTPS edge in front of it.
 
 ### Changed
 

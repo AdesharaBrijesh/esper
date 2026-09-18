@@ -218,6 +218,44 @@ docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzi
 gunzip -c backup.sql.gz | docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 ```
 
+## Continuous deployment
+
+CI (`.github/workflows/ci.yml`) always runs on every push: typecheck, lint, unit tests, integration
+tests, and a production build. A fourth job, `deploy`, only runs after the other three pass **and**
+only on a push to `main` — it SSHes into the server and redeploys in place.
+
+How it reaches a private homeserver with no public IP: the runner joins the server's Tailscale
+network for the duration of the job, then connects over SSH using a dedicated, tightly restricted
+deploy key — one whose `authorized_keys` entry forces it to run exactly one command
+(`scripts/deploy.sh`) and nothing else, with agent/X11/port forwarding all disabled. That script
+fetches `origin/main`, hard-resets to it, runs `docker compose up -d --build`, and polls
+`/api/health` until the new containers report healthy (or fails loudly if they don't).
+
+To set this up on your own server:
+
+1. Generate a dedicated SSH keypair for deploys (don't reuse a personal one) and add the **public**
+   half to the server's `~/.ssh/authorized_keys`, restricted like this:
+
+   ```text
+   no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding,command="/path/to/esper/scripts/deploy.sh" ssh-ed25519 AAAA...
+   ```
+
+2. Make sure `sshd` is reachable on a port that bypasses Tailscale SSH's interactive-approval flow if
+   Tailscale SSH is enabled on that node (a second `Port` line in `sshd_config` pointed at plain
+   OpenSSH works well) — otherwise the unattended CI job will hang waiting for a browser approval
+   that never comes.
+3. In the GitHub repo, add these secrets under **Settings → Secrets and variables → Actions**:
+   - `DEPLOY_SSH_KEY` — the deploy key's **private** half, pasted whole.
+   - `TS_AUTHKEY` — a **reusable + ephemeral** auth key from the Tailscale admin console
+     (Settings → Keys → Generate auth key). Ephemeral means the CI runner's node disappears from
+     your tailnet again as soon as the job ends.
+4. Edit the target host/user/port in the `deploy` job of `ci.yml` to match your server.
+
+A site that needs to attach the app container to an existing reverse-proxy Docker network (as
+opposed to publishing a host port) can do that in a local, gitignored `docker-compose.override.yml`
+next to `docker-compose.yml` — Compose merges it automatically, and `deploy.sh`'s `git reset --hard`
+never touches untracked files, so the override survives every redeploy.
+
 ## Data model
 
 - **User** – login (single user in v1; every record is scoped by `userId` so multi-user can be added later).

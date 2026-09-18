@@ -82,3 +82,35 @@ jobs:
 
       - name: Run integration suite
         run: npm run test:integration
+
+  deploy:
+    name: Deploy to homeserver
+    runs-on: ubuntu-latest
+    needs: [check, integration]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    concurrency:
+      group: deploy-homeserver
+      cancel-in-progress: false
+    steps:
+      # Puts this ephemeral runner on the private tailnet so it can reach the
+      # homeserver at all — it has no public IP and no port is forwarded to it.
+      # TS_AUTHKEY: a reusable + ephemeral key from the Tailscale admin console
+      # (Settings -> Keys -> Generate auth key). The runner leaves the tailnet
+      # on its own once the job ends because it's ephemeral.
+      - name: Join tailnet
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 600 -D /dev/stdin ~/.ssh/deploy_key <<< "$SSH_KEY"
+          # The target is reached only over the tailnet's private IP range; a forced
+          # command on the server ignores whatever we pass here and always runs
+          # scripts/deploy.sh, so this connection can't do anything else.
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              -i ~/.ssh/deploy_key -p 2222 \
+              brijuice@100.94.112.68 "deploy"
