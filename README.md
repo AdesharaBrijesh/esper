@@ -1,6 +1,6 @@
 # Esper
 
-A self-hosted, mobile-first personal finance tracker for daily expenses, income, account transfers, recurring commitments (course fees, subscriptions, bills, EMIs, SIPs), credit cards, investments, trading capital (for yourself and your brother), and money borrowed from or lent to friends. Built as an installable PWA and deployed with Docker Compose on a home server.
+A mobile-first personal finance tracker for daily expenses, income, account transfers, recurring commitments (course fees, subscriptions, bills, EMIs, SIPs), credit cards, investments, trading capital (for yourself and your brother), and money borrowed from or lent to friends. Built as an installable PWA. Live deployment runs on Vercel's free tier against a free Neon Postgres database (see [Hosting](#hosting)); a Docker Compose path also exists for self-hosting on your own machine.
 
 ## Features
 
@@ -62,6 +62,46 @@ An investment account's balance is what you have put in (transfers in, less anyt
 ## Tech stack
 
 Next.js 16 (App Router, Server Components, Server Actions, Route Handlers, Proxy), TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Lucide icons, PostgreSQL 16, Prisma 7 (`@prisma/adapter-pg`), Zod 4, React Hook Form, Recharts, `jose` (session tokens), `bcryptjs`, Vitest.
+
+## Hosting
+
+Two independent ways to run this in production; pick one.
+
+**Vercel + Neon (live deployment, fully managed, free tier).** The app deploys to Vercel
+and the database is Neon's serverless Postgres — both free forever for personal use, no
+card required for either. No code changes are needed for this path: Neon is a plain
+Postgres connection string, so the existing `@prisma/adapter-pg` setup works unmodified.
+
+1. Import the GitHub repo as a new Vercel project (Dashboard → Add New → Project).
+2. In that project's **Storage** tab, "Connect Database" → **Neon** → Create New. This
+   injects Neon's connection strings as env vars automatically — copy the **pooled**
+   one (`..._POSTGRES_PRISMA_URL`) into a `DATABASE_URL` env var (Project Settings →
+   Environment Variables); Vercel doesn't let an integration's own vars double as your
+   app's `DATABASE_URL` directly.
+3. Add the rest of the variables from `.env.example` (`AUTH_SECRET`, `SEED_USER_*`,
+   `TZ`, etc.) as env vars for Production and Preview. Leave `COOKIE_SECURE` unset —
+   Vercel is always HTTPS, so the secure default is correct there.
+4. Run migrations once against the **unpooled** Neon URL (`..._POSTGRES_URL_NON_POOLING`),
+   since Neon's pooler doesn't reliably support the session state Prisma Migrate needs:
+   `DATABASE_URL="<unpooled url>" npx prisma migrate deploy`, then seed the same way:
+   `DATABASE_URL="<unpooled url>" npx tsx prisma/seed.ts`.
+5. Push to `main` — Vercel's GitHub integration builds and deploys automatically from
+   here on (see [Continuous deployment](#continuous-deployment)).
+6. To add your own domain: Vercel Project → Domains → add it, then create the DNS
+   record it gives you (typically an `A` record to `76.76.21.21`) at your DNS provider,
+   **not proxied** if that provider is Cloudflare — let Vercel's edge terminate TLS
+   directly for that hostname.
+
+One thing this path gives up versus a persistent server: the login rate-limiter
+(`lib/rate-limit.ts`) keeps its counters in memory, which resets per serverless
+instance rather than staying globally consistent. It's a reduced-effectiveness
+security feature, not a broken one — a real fix would move those counters into the
+database or a shared cache (e.g. Upstash Redis's free tier), which is a reasonable
+future improvement if this ever needs hardening further.
+
+**Docker Compose (self-hosted).** Runs the exact same app in a container you control —
+your own VM, a homeserver, anything with Docker. See
+[Production deployment](#production-deployment-self-hosted-with-docker) below.
 
 ## Local development
 
@@ -128,7 +168,7 @@ docker compose up --build
 
 Then open http://localhost:3000 (or `APP_PORT`).
 
-## Production deployment (Ubuntu home server)
+## Production deployment (self-hosted with Docker)
 
 ```bash
 git clone YOUR_REPOSITORY expense-tracker
@@ -220,40 +260,23 @@ gunzip -c backup.sql.gz | docker compose exec -T postgres psql -U "$POSTGRES_USE
 
 ## Continuous deployment
 
-CI (`.github/workflows/ci.yml`) always runs on every push: typecheck, lint, unit tests, integration
-tests, and a production build. A fourth job, `deploy`, only runs after the other three pass **and**
-only on a push to `main` — it SSHes into the server and redeploys in place.
+**On Vercel** (the live deployment): its GitHub integration deploys automatically on every push to
+`main`, no workflow needed. `.github/workflows/ci.yml` runs typecheck, lint, unit tests, the
+integration suite and a build on every push as an independent quality gate — it doesn't drive the
+deploy and doesn't need to pass first, since Vercel and GitHub Actions aren't wired together. Wire
+them together with a branch-protection required-status-check if you want pushes that fail CI to be
+blocked before they can reach `main` at all.
 
-How it reaches a private homeserver with no public IP: the runner joins the server's Tailscale
-network for the duration of the job, then connects over SSH using a dedicated, tightly restricted
-deploy key — one whose `authorized_keys` entry forces it to run exactly one command
-(`scripts/deploy.sh`) and nothing else, with agent/X11/port forwarding all disabled. That script
-fetches `origin/main`, hard-resets to it, runs `docker compose up -d --build`, and polls
-`/api/health` until the new containers report healthy (or fails loudly if they don't).
-
-To set this up on your own server:
-
-1. Generate a dedicated SSH keypair for deploys (don't reuse a personal one) and add the **public**
-   half to the server's `~/.ssh/authorized_keys`, restricted like this:
-
-   ```text
-   no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding,command="bash /path/to/esper/scripts/deploy.sh" ssh-ed25519 AAAA...
-   ```
-
-   Invoking it as `bash scripts/deploy.sh` rather than the bare path is deliberate: some `git
-   reset --hard` checkouts don't reliably restore the executable bit on this file across every
-   filesystem/git combination, and running it through bash explicitly sidesteps that entirely.
-
-2. Make sure `sshd` is reachable on a port that bypasses Tailscale SSH's interactive-approval flow if
-   Tailscale SSH is enabled on that node (a second `Port` line in `sshd_config` pointed at plain
-   OpenSSH works well) — otherwise the unattended CI job will hang waiting for a browser approval
-   that never comes.
-3. In the GitHub repo, add these secrets under **Settings → Secrets and variables → Actions**:
-   - `DEPLOY_SSH_KEY` — the deploy key's **private** half, pasted whole.
-   - `TS_AUTHKEY` — a **reusable + ephemeral** auth key from the Tailscale admin console
-     (Settings → Keys → Generate auth key). Ephemeral means the CI runner's node disappears from
-     your tailnet again as soon as the job ends.
-4. Edit the target host/user/port in the `deploy` job of `ci.yml` to match your server.
+**On a self-hosted Docker server**, `scripts/deploy.sh` is the same idea without a managed
+platform behind it: fetch `origin/main`, hard-reset to it, `docker compose up -d --build`, poll
+`/api/health` until healthy. Wiring GitHub Actions to run it over SSH after CI passes is a
+reasonable next step if you go that route — a forced-command, tightly restricted deploy key (no
+shell, no agent/X11/port forwarding, only that one script) is the safe way to let CI reach a
+server that has no public IP (e.g. by joining its Tailscale network for the duration of the job).
+This repo ran that exact setup against a homeserver during development; it was removed from
+`ci.yml` once the live deployment moved to Vercel, since a job permanently red against a box that's
+sometimes powered off is worse than no job. The script itself is untouched and ready to wire back
+up if you self-host instead.
 
 A site that needs to attach the app container to an existing reverse-proxy Docker network (as
 opposed to publishing a host port) can do that in a local, gitignored `docker-compose.override.yml`

@@ -2,7 +2,22 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased — v1 preparation
+## Unreleased
+
+### Hosting
+
+- Moved the live deployment from a self-hosted homeserver (unreliable power) to Vercel + Neon,
+  both free tiers, no code changes needed for the database swap. See README → "Hosting".
+- Fixed `output: "standalone"` breaking Vercel's own build tracing — it's now conditional on
+  `process.env.VERCEL`, so the self-hosted Docker path keeps its standalone output unchanged.
+- Removed the SSH-based `deploy` job from CI (it targeted the now-retired homeserver); `check` and
+  `integration` remain as pure quality gates. `scripts/deploy.sh` is untouched for anyone who wants
+  to wire the same job up against their own Docker host.
+- Added a second, fully isolated user account for a friend, seeded with the same default categories
+  and starter accounts as the primary user — the data model already scoped every record by
+  `userId`, so this needed no schema or code changes, just a one-off seed.
+
+## v1 preparation
 
 ### Added
 

@@ -51,3 +51,6 @@ next-env.d.ts
 
 # site-specific compose overrides (e.g. attaching to a host's reverse-proxy network)
 docker-compose.override.yml
+
+.vercel
+.env*

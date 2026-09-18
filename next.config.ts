@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // "standalone" is for the self-hosted Docker image (see Dockerfile). Vercel's own
+  // build pipeline expects its native output layout and breaks if this is set while
+  // building there (it sets VERCEL=1 in every build), so skip it on that platform.
+  output: process.env.VERCEL ? undefined : "standalone",
   // Native/driver packages must stay external to the server bundle.
   serverExternalPackages: ["@prisma/adapter-pg", "pg"],
   experimental: {
