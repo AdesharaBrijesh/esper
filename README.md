@@ -237,8 +237,12 @@ To set this up on your own server:
    half to the server's `~/.ssh/authorized_keys`, restricted like this:
 
    ```text
-   no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding,command="/path/to/esper/scripts/deploy.sh" ssh-ed25519 AAAA...
+   no-pty,no-agent-forwarding,no-X11-forwarding,no-port-forwarding,command="bash /path/to/esper/scripts/deploy.sh" ssh-ed25519 AAAA...
    ```
+
+   Invoking it as `bash scripts/deploy.sh` rather than the bare path is deliberate: some `git
+   reset --hard` checkouts don't reliably restore the executable bit on this file across every
+   filesystem/git combination, and running it through bash explicitly sidesteps that entirely.
 
 2. Make sure `sshd` is reachable on a port that bypasses Tailscale SSH's interactive-approval flow if
    Tailscale SSH is enabled on that node (a second `Port` line in `sshd_config` pointed at plain
