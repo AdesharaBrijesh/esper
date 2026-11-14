@@ -28,7 +28,7 @@ The app distinguishes five kinds of money movement and never mixes them:
 | Expense / Income | ₹250 food, ₹40,000 salary | Money leaves / enters an account. Counted in spending & income reports. |
 | Transfer | Cash → Bank, Bank → Trading (deposit) | Moves between your accounts. Net worth unchanged. Never income or expense. |
 | Trading profit / loss | +₹3,000 / −₹2,000 | Changes the trading account balance. Reported in the trading summary, not in spending. |
-| Borrow / Lend | ₹5,000 from Rahul, ₹3,000 to Amit | Creates a loan with an outstanding balance. Repayments reduce it. Never income or expense. |
+| People (gave / got) | ₹5,000 from Rahul, ₹3,000 to Amit | Moves that person's running balance (and the account, if one is chosen). Never income or expense. |
 | Investment contribution | ₹5,000 SIP into an index fund | A transfer into an investment account. Net worth unchanged; growth is recorded as a valuation, not as income. |
 
 All money is stored as `DECIMAL(14,2)` in PostgreSQL and handled with `decimal.js` in code. No floating point arithmetic touches financial values.
@@ -56,6 +56,57 @@ Instalments can be re-priced, skipped (a waived term, a paused subscription), or
 ### Credit cards
 
 A card is an ordinary account whose **negative balance is the amount owed**. Spending on it is a normal expense; paying the bill is a transfer from a bank account into the card. Set a credit limit and a due day on the account to get utilisation tracking and a bill reminder. No separate card ledger exists, so the card can never disagree with your transaction history.
+
+### People: who owes whom
+
+Each friend has one running balance: every **You gave** raises it, every **You got** lowers it.
+Positive means they owe you, negative means you owe them. The People screen shows **the total
+you need to pay everyone** and the total you'll get back, netting each person first (lend ₹500
+and borrow ₹200 from the same friend, and they simply owe you ₹300).
+
+An entry can go through an account (handing over cash lowers your cash balance) or be just a
+record (no account selected), for things like "he paid my share of the rent" or writing down an
+old debt. "Settle up" pre-fills the exact amount that brings a balance to zero. Loans recorded
+before this ledger existed still count in the same balances.
+
+### Quick add: the day's spends in one go
+
+Open **Quick list** from the Add screen (or *Quick add* on the dashboard) and type one expense
+per line:
+
+```text
+50 burger
+30 auto
+45 bus online
+120 groceries bob
+```
+
+Each line becomes an expense with the amount, the description and a category picked from the
+words (and from how you categorised the same words before; Miscellaneous if nothing fits).
+Lines are paid from **cash** unless they say `bob`, `online` or `upi` (also gpay, phonepe,
+paytm), which pay from the **Bank of Baroda** account by UPI. Writing a word from one of your
+own account names (`hdfc`, …) picks that account. Both default accounts can be changed on the
+page. Every line's category and account can be changed before adding, and a line without an
+amount is skipped, never guessed.
+
+### Import: statements, screenshots and Angel One
+
+`/transactions/import` reads:
+
+- **Bank / UPI**: CSV and Excel exports (parsed exactly, header found even below the bank's
+  account details), PDF statements, and photos or screenshots of UPI apps. Photos, screenshots
+  and scanned PDFs are read by Google Gemini when `GEMINI_API_KEY` is set.
+- **Angel One**: P&L statements, tradebooks, ledgers and app screenshots become trading
+  entries in your trading account: realised profit and loss per scrip, charges (brokerage,
+  STT, GST and other fees), and funds added or withdrawn (linked to the bank account you
+  pick). Unrealised P&L and holdings are ignored. This mode needs the Gemini key.
+
+Nothing is saved until you review it: every row's date, description, amount and category (or
+kind) can be edited, and rows that look already recorded are flagged and unticked. Uploads are
+limited to about 4 MB per go (photos are compressed in the browser first).
+
+The reasoning behind these designs (and what was rejected) is in
+[docs/DECISIONS.md](docs/DECISIONS.md).
 
 ### Investments
 
@@ -163,6 +214,7 @@ Sign in with `SEED_USER_EMAIL` / `SEED_USER_PASSWORD`. Optional: `npm run db:dem
 | `npm run reset-password` | Emergency password reset (see below) |
 | `npm run check` | typecheck + lint + test + build |
 | `npm run db:migrate` / `db:deploy` / `db:seed` / `db:studio` | Prisma helpers |
+| `npm run db:deploy:pg` | Apply pending migrations over the `pg` driver when `prisma migrate deploy` can't connect (preview; add `-- --apply` to write) |
 | `npm run db:demo` | Sample data for an empty dev database |
 | `npm run icons` | Regenerate PWA icons from the inline SVG (uses `sharp`) |
 
@@ -298,7 +350,7 @@ never touches untracked files, so the override survives every redeploy.
 - **Account** – `name`, `type` (CASH, BANK, UPI, CARD, TRADING, OTHER), `owner` (SELF, BROTHER), `openingBalance`, `isActive` (archive instead of delete once it has history).
 - **Category** – `name`, `type` (EXPENSE, INCOME), emoji `icon`, `color`, `isActive`.
 - **Person** – a friend you give money to or get money from. Their balance is `sum(GAVE) - sum(GOT)` over transactions carrying their `personId` (the old loan types count the same way).
-- **Loan** – `personId`, `direction` (BORROWED, LENT), `originalAmount`, `outstandingAmount`, `status` (ACTIVE, PAID). Outstanding is recomputed inside the same database transaction whenever a linked transaction changes.
+- **Loan** – legacy (from before the people ledger): `personId`, `direction` (BORROWED, LENT), `originalAmount`, `outstandingAmount`, `status` (ACTIVE, PAID). Existing loans keep working and count in people balances; new money with a person is recorded as `GAVE` / `GOT` instead.
 - **Transaction** – `type`, `amount`, `owner`, `paymentMode`, `transactionDate`, optional `categoryId`, `fromAccountId`, `toAccountId`, `loanId`, `personId`, `notes`. `GAVE` / `GOT` are people-ledger entries whose account is optional (no account = just a record).
 - **Plan** – a recurring commitment: `kind` (FEE, SUBSCRIPTION, BILL, EMI, SIP, OTHER), `name`, `amount`, `frequency`, `startDate`, optional `endDate`/`totalCount`, the account it is paid from, and a category (or, for a SIP, the investment account it funds).
 - **Installment** – one dated amount within a plan: `sequence`, `dueDate`, `amount`, `status` (PENDING, PAID, SKIPPED) and the `transactionId` it created when paid. "Overdue" and "due soon" are derived from the date, never stored.
@@ -317,10 +369,12 @@ Every transaction moves `amount` **from** `fromAccountId` (balance decreases) **
 | TRADING_WITHDRAWAL | trading account | bank/cash | |
 | TRADING_PROFIT | – | trading account | optional income category |
 | TRADING_LOSS | trading account | – | |
-| BORROW | (person) | account | creates a BORROWED loan |
-| LEND | account | (person) | creates a LENT loan |
-| LOAN_REPAYMENT | account | (person) | reduces a BORROWED loan; cannot exceed outstanding |
-| LENT_REPAYMENT | (person) | account | reduces a LENT loan; cannot exceed outstanding |
+| GAVE | account or nothing | (person) | person's balance +amount (they owe you more / you owe them less) |
+| GOT | (person) | account or nothing | person's balance −amount |
+| BORROW | (person) | account | legacy: creates a BORROWED loan |
+| LEND | account | (person) | legacy: creates a LENT loan |
+| LOAN_REPAYMENT | account | (person) | legacy: reduces a BORROWED loan; cannot exceed outstanding |
+| LENT_REPAYMENT | (person) | account | legacy: reduces a LENT loan; cannot exceed outstanding |
 
 Validation rules enforced server-side: positive amounts (2 decimals), no same-account transfers, correct account kinds for trading types, category type must match, loan repayments never exceed the outstanding amount, a borrow/lend cannot be deleted or re-typed while repayments exist, archived accounts cannot receive new transactions, and every query is scoped to the signed-in user.
 
@@ -331,7 +385,7 @@ app/
   (auth)/login/            login page
   (app)/                   protected shell (sidebar + bottom nav)
     page.tsx               dashboard
-    transactions/          activity, new, [id] (detail/edit/delete)
+    transactions/          activity, new, quick (quick add), import, [id] (detail/edit/delete)
     accounts/              list, [id] detail + history
     categories/
     people/                people ledger overview, [personId] ledger (/loans redirects here)
@@ -346,11 +400,13 @@ components/
   shared/                  Money, forms, lists, dialogs, pagination…
   layout/                  sidebar, bottom nav, theme toggle
   charts/                  Recharts wrappers
-  dashboard/ transactions/ accounts/ categories/ loans/ reports/ settings/
+  dashboard/ transactions/ accounts/ categories/ people/ loans/ reports/ settings/
 lib/
   prisma.ts                Prisma client (pg adapter)
   auth/                    password hashing, JWT session cookie, data-access layer
-  calculations/            pure financial logic (balances, loans, trading, reports)
+  calculations/            pure logic (balances, ledger, trading, reports, categorize, quick-add, statement parsers, AI row validation)
+  ai/                      Gemini client (model fallback, retries) and statement / broker-report prompts
+  client/                  browser-only helpers (image compression, localStorage hook)
   validations/             Zod schemas
   services/transactions.ts create / update / delete with loan sync (single source of truth)
   data/                    server-only queries (accounts, transactions, loans, trading, dashboard, reports)
@@ -358,7 +414,8 @@ lib/
   money.ts, dates.ts, constants.ts, csv.ts, errors.ts, types.ts
 prisma/                    schema, migrations, seed
 public/                    icons, service worker (sw.js)
-scripts/                   backup.sh, restore.sh, migrate-and-seed.sh, generate-icons.ts, demo-data.ts
+scripts/                   backup.sh, restore.sh, migrate-and-seed.sh, apply-migrations.ts, generate-icons.ts, demo-data.ts
+docs/DECISIONS.md          design decisions and the reasons behind them
 tests/                     unit tests + tests/integration (database)
 Dockerfile, docker-compose.yml, .dockerignore, .env.example, prisma.config.ts, proxy.ts
 ```
@@ -394,11 +451,11 @@ Omit the password and one is generated for you. Either way `sessionVersion` is b
 ## Testing
 
 ```bash
-npm test                    # pure logic: balances, loans, trading, reports, validations, money & date helpers, safe redirects
+npm test                    # pure logic: balances, ledger, loans, trading, reports, quick-add parsing, categorisation, statement & AI-row parsing, validations, money & date helpers
 npm run test:integration    # transaction service against a real PostgreSQL (TEST_DATABASE_URL)
 ```
 
-The integration suite covers expense/income/transfer effects, trading rules and owner checks, borrowing and lending with partial and full repayments, over-repayment rejection, editing and deleting with loan recalculation, and cross-user isolation. For plans it proves the contract the feature rests on: creating a plan moves no money, paying an instalment writes a real transaction and moves the balance by exactly that amount, a SIP produces a transfer rather than an expense, undoing a payment (or deleting its transaction from the Activity screen) returns the instalment to pending, editing a plan never rewrites paid history, and one user cannot touch another's instalments.
+The integration suite covers expense/income/transfer effects, trading rules and owner checks, borrowing and lending with partial and full repayments, over-repayment rejection, editing and deleting with loan recalculation, and cross-user isolation. The people-ledger suite covers gave/got with and without an account, creating a person by name, legacy loans counting in the same balance, totals across people and editing entries. For plans it proves the contract the feature rests on: creating a plan moves no money, paying an instalment writes a real transaction and moves the balance by exactly that amount, a SIP produces a transfer rather than an expense, undoing a payment (or deleting its transaction from the Activity screen) returns the instalment to pending, editing a plan never rewrites paid history, and one user cannot touch another's instalments.
 
 CI runs both suites on every push, the integration one against a PostgreSQL service container (`.github/workflows/ci.yml`).
 
@@ -412,9 +469,11 @@ The service worker caches static assets and shows `/offline` when the network is
 ## Limitations and ideas for later
 
 - Single user in v1 (data model is multi-user ready; add sign-up and per-user settings).
-- No audit log, budgets, attachments, CSV *import* or multi-currency.
+- No audit log, budgets, attachments or multi-currency.
+- AI import depends on Gemini's free tier, which is sometimes busy; the app retries and falls back between models, and CSV/Excel never need it. Password-protected PDFs must be re-saved without the password first.
+- From a network that blocks Postgres (port 5432), production migrations go through the Neon SQL Editor; see docs/DECISIONS.md.
 - Reports are computed on demand from transactions in the range (fine for personal volumes; add cached monthly rollups if it ever grows large).
 - Brother is an *owner label*, not a login; a future version could give him his own account with shared visibility.
 - Plans do not auto-post. Paying is deliberate, because an instalment that posts itself while a payment actually bounced is worse than one you confirm.
 - Investment valuations are entered by hand on purpose — a price feed is one more thing that can break or start charging.
-- Possible additions: budgets per category, receipts, CSV import, per-account reconciliation ("mark balance as verified"), push reminders for due instalments.
+- Possible additions: budgets per category, receipts, running migrations automatically in the Vercel production build, per-account reconciliation ("mark balance as verified"), push reminders for due instalments.

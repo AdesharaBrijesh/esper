@@ -2,29 +2,84 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 2026-11-15 — People ledger, quick add, smart import
+
+Why each piece works the way it does is recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ### Added
 
 - **People ledger** (`/people`, replaces "People & Loans"): one running balance per friend.
   "You gave" / "You got" entries, each optionally through an account (no account = just a
-  record, no balance moves). Shows who you owe and who owes you, the total you need to pay
-  everyone and the total you'll get back, a running balance per entry, and a one-tap
-  "Settle up". New `GAVE` / `GOT` transaction types and `Transaction.personId`; existing loan
-  transactions are kept as they are and counted in the same balance (an additive migration
-  backfills their `personId`). `/loans` redirects to `/people`.
-- **Quick add** (`/transactions/quick`): type a whole day of spends, one per line —
-  `50 burger`, `30 auto`, `45 bus online` — with a live preview. Amounts in any common form
-  (`₹50`, `50rs`, `1,200`, `2k`), categories from a word-aware keyword dictionary plus what you
-  filed the same words under before, Miscellaneous otherwise. Paid from cash by default;
-  `bob` / `online` / `upi` (and gpay, phonepe, …) pay from the online account, and any of your
-  own account names works too. Every chip is editable before adding.
-- **Smarter import**: Excel (.xlsx) statements; header rows found below a bank's preamble;
-  UPI screenshots, photos and scanned PDFs read by Gemini (free tier, `GEMINI_API_KEY`); and an
-  **Angel One** mode that turns P&L statements, tradebooks, ledgers and screenshots into
-  trading profit / loss / charges / deposit / withdrawal entries. AI output is validated row by
-  row, rows are editable (date, description, amount, category or kind) and duplicates are
-  flagged. Busy models are retried, then the next model is tried.
+  record, no account balance moves). Shows who you owe and who owes you, **the total you need
+  to pay everyone** and the total you'll get back (each person netted first), a running
+  balance on every entry, and a one-tap "Settle up" with the exact amount.
+  New `GAVE` / `GOT` transaction types and `Transaction.personId`.
+- **Quick add** (`/transactions/quick`, the "Quick list" tab on the Add screen, and a dashboard
+  button): type a whole day of spends, one per line (`50 burger`, `30 auto`, `45 bus online`),
+  with a live preview. Amounts in any common form (`₹50`, `50rs`, `1,200`, `2k`); categories from
+  a word-aware keyword dictionary plus what you filed the same words under before, else
+  Miscellaneous. Paid from cash by default; `bob` / `online` / `upi` (and gpay, phonepe, …) pay
+  from the Bank of Baroda account by UPI; any of your own account names works too. Every
+  category and account chip is editable before adding; the draft survives leaving the page;
+  Ctrl+Enter adds.
+- **Smarter import** (`/transactions/import`):
+  - Excel (.xlsx) statements, and header rows found below a bank's preamble (CSV too).
+  - UPI app screenshots, photos and scanned PDFs read by Gemini (free tier,
+    `GEMINI_API_KEY`); several files per upload; photos compressed in the browser.
+  - **Angel One** mode: P&L statements, tradebooks, ledgers and screenshots become trading
+    profit / loss / charges / funds added / withdrawn entries in your trading account, with
+    fund movements tied to the bank account you choose.
+  - Every row is validated, then editable (date, description, amount, category or kind);
+    likely duplicates are flagged and unticked; password-protected PDFs are detected with
+    instructions.
+- **`scripts/apply-migrations.ts`** (`npm run db:deploy:pg`): applies Prisma migrations through
+  the app's own `pg` driver with Prisma-identical bookkeeping, for machines where
+  `prisma migrate deploy` can't connect. Preview by default, `--apply` to write.
+- `docs/DECISIONS.md`: the design record for these features.
+
+### Changed
+
+- Category suggestions (imports and quick add) match on word boundaries and prefer the longest
+  keyword, learn from your own past categorisation, and know many more everyday spends (chai,
+  vada pav, auto, petrol, medicines, …).
+- Dashboard and Reports show "To pay" / "To get" from the people ledger; the export
+  `/api/export/people` (old `/api/export/loans` still works) lists each person's balance.
+- Navigation: "People & Loans" is now "People"; Quick add and the Add form count as the Add
+  button, not Activity.
+- Existing loan transactions are untouched and count in the same people balances; the
+  transaction form no longer offers the old loan types for new entries. `/loans` and
+  `/loans/:id` permanently redirect to `/people`.
+
+### Database
+
+- `20261114172412_people_ledger`: `GAVE`/`GOT` enum values, `Transaction.personId` (+ index,
+  foreign key). Additive.
+- `20261114172500_backfill_transaction_person`: fills `personId` on existing loan transactions
+  from their loan. Changes nothing else.
+- Applied to production on 2026-11-15 through the Neon SQL Editor (the development network
+  blocks Postgres on port 5432); see docs/DECISIONS.md.
+
+### Configuration
+
+- New optional env vars: `GEMINI_API_KEY` (set on Vercel for Production and Preview) and
+  `GEMINI_MODEL` (comma-separated models; default `gemini-flash-lite-latest,gemini-flash-latest`).
+- Server-action uploads raised to 4.5 MB (`experimental.serverActions.bodySizeLimit`).
+- New dependency: `read-excel-file` 9.3.14 (pinned).
+
+### Tests
+
+- Unit: quick-add parsing and account words, word-boundary and learned categorisation,
+  ledger maths and running balances, AI row validation, header detection, Excel cells
+  (172 unit tests in total).
+- Integration: people ledger against PostgreSQL: gave/got with and without accounts, new
+  person by name, legacy loans counted, totals across people, edits, trading mappings
+  (41 integration tests in total).
+- Verified end to end in a browser against the real server and Gemini: screenshot import,
+  Angel One import, quick add and a ledger entry.
+
+## 2026-09-19 — Bank statement import, Vercel + Neon
+
+### Added
 
 - **Bank statement import**: upload a CSV or PDF statement (`/transactions/import`), get every row
   auto-categorised against your own categories (free, rule-based keyword matching — no API key, no
