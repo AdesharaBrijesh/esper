@@ -66,7 +66,14 @@ export const transactionSchema = z
     if (flow.loan === "repays" && !d.loanId) {
       ctx.addIssue({ code: "custom", path: ["loanId"], message: "Choose the loan being repaid" });
     }
-    if (flow.loan === "none" && (d.loanId || d.personId || d.personName)) {
+    if (flow.ledger) {
+      if (!d.personId && !d.personName) {
+        ctx.addIssue({ code: "custom", path: ["personId"], message: "Choose a person or enter a new name" });
+      }
+      if (d.loanId) {
+        ctx.addIssue({ code: "custom", path: ["loanId"], message: "A people entry is not linked to a loan" });
+      }
+    } else if (flow.loan === "none" && (d.loanId || d.personId || d.personName)) {
       ctx.addIssue({ code: "custom", path: ["loanId"], message: "This transaction type is not linked to a loan" });
     }
   });

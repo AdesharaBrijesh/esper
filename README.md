@@ -5,15 +5,17 @@ A mobile-first personal finance tracker for daily expenses, income, account tran
 ## Features
 
 - **Daily money**: cash, UPI, bank and card expenses; income; account-to-account transfers.
+- **Quick add**: type the day's spends one per line (`50 burger`, `30 auto`, `45 bus online`) and add them all at once. Amounts, descriptions and categories are picked up as you type; everything is paid from cash unless the line says `bob`, `online` or `upi` (or names one of your accounts).
+- **Import**: bank statements (CSV, Excel, PDF), UPI app screenshots and Angel One reports (P&L, tradebook, ledger). CSV and Excel are parsed exactly; photos, scanned PDFs and broker reports are read by Gemini (free tier) when `GEMINI_API_KEY` is set. Every row is reviewed and editable before anything is added.
 - **Plans**: anything that repeats — school/college/bachelor's/master's fees, subscriptions, rent and utility bills, EMIs and SIPs. Set one up once and the whole schedule is generated, *past terms included*, so several years of fees can be entered in one go. See [Plans](#plans-fees-subscriptions-bills-emis-and-sips).
 - **Credit cards**: outstanding balance, credit limit, utilisation, spend this month and the next bill due date. Paying the bill is a transfer, so nothing is double-counted.
 - **Investments**: what you put in versus what it is worth, with gains derived from valuation snapshots you type in. No price feeds, no API keys, nothing to break.
 - **Accounts**: cash, bank, UPI, card, trading, investment and other accounts, each owned by *Self* or *Brother*. Balances are always derived from the opening balance plus every transaction.
 - **Trading module**: deposits, withdrawals, profit and loss per trading account, with capital and results reported per owner (Self / Brother / All).
-- **Borrow & lend**: people, loans with outstanding balances, partial and full repayments, "you owe" / "owed to you" overviews.
+- **People**: a running ledger per friend. Note every "You gave" / "You got" (from an account, or just as a record) and see who owes whom, plus the total you need to pay everyone and the total you'll get back.
 - **Reports**: spending by category, monthly income vs expenses, owner breakdown, payment mode and cash vs online, trading summary, loan balances; presets and custom date ranges.
 - **Activity**: filterable, paginated history with search; edit and delete with confirmation; balances recalculate automatically.
-- **CSV export** of transactions (respecting filters), accounts, loans and plans.
+- **CSV export** of transactions (respecting filters), accounts, people balances and plans.
 - **PWA**: web manifest, icons, installable on Android Chrome and iOS Safari, offline fallback page, light and dark mode.
 - **Single-user auth**: bcrypt-hashed password, HTTP-only signed session cookie, route protection, brute-force lockout and a nonce-based Content Security Policy.
 
@@ -79,12 +81,17 @@ Postgres connection string, so the existing `@prisma/adapter-pg` setup works unm
    Environment Variables); Vercel doesn't let an integration's own vars double as your
    app's `DATABASE_URL` directly.
 3. Add the rest of the variables from `.env.example` (`AUTH_SECRET`, `SEED_USER_*`,
-   `TZ`, etc.) as env vars for Production and Preview. Leave `COOKIE_SECURE` unset —
+   `TZ`, `GEMINI_API_KEY` for AI import, etc.) as env vars for Production and Preview. Leave `COOKIE_SECURE` unset —
    Vercel is always HTTPS, so the secure default is correct there.
 4. Run migrations once against the **unpooled** Neon URL (`..._POSTGRES_URL_NON_POOLING`),
    since Neon's pooler doesn't reliably support the session state Prisma Migrate needs:
    `DATABASE_URL="<unpooled url>" npx prisma migrate deploy`, then seed the same way:
    `DATABASE_URL="<unpooled url>" npx tsx prisma/seed.ts`.
+   If `migrate deploy` fails with `P1001: Can't reach database server` even though the
+   app itself connects fine (Prisma's bundled schema engine can't reach Neon from some
+   Windows machines), use the equivalent over the app's own `pg` driver:
+   `npm run db:deploy:pg` previews, `npm run db:deploy:pg -- --apply` applies. It keeps
+   `_prisma_migrations` exactly as Prisma would, so the two stay interchangeable.
 5. Push to `main` — Vercel's GitHub integration builds and deploys automatically from
    here on (see [Continuous deployment](#continuous-deployment)).
 6. To add your own domain: Vercel Project → Domains → add it, then create the DNS
@@ -193,6 +200,8 @@ docker compose up -d --build
 | `SEED_USER_NAME`, `SEED_USER_EMAIL`, `SEED_USER_PASSWORD` | Initial login, created on first start if no user exists (password never overwritten later) |
 | `SEED_EXAMPLE_ACCOUNTS` | `true` (default) creates zero-balance example accounts on first start; set `false` to start empty |
 | `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_THEME_COLOR` | Branding, baked in at build time |
+| `GEMINI_API_KEY` | Optional. Free key from Google AI Studio; turns on AI reading of photos, scanned PDFs and Angel One reports in Import |
+| `GEMINI_MODEL` | Optional. Comma-separated models tried in order (default `gemini-flash-lite-latest,gemini-flash-latest`) |
 
 Never commit `.env`.
 
@@ -288,9 +297,9 @@ never touches untracked files, so the override survives every redeploy.
 - **User** – login (single user in v1; every record is scoped by `userId` so multi-user can be added later).
 - **Account** – `name`, `type` (CASH, BANK, UPI, CARD, TRADING, OTHER), `owner` (SELF, BROTHER), `openingBalance`, `isActive` (archive instead of delete once it has history).
 - **Category** – `name`, `type` (EXPENSE, INCOME), emoji `icon`, `color`, `isActive`.
-- **Person** – someone you borrow from or lend to.
+- **Person** – a friend you give money to or get money from. Their balance is `sum(GAVE) - sum(GOT)` over transactions carrying their `personId` (the old loan types count the same way).
 - **Loan** – `personId`, `direction` (BORROWED, LENT), `originalAmount`, `outstandingAmount`, `status` (ACTIVE, PAID). Outstanding is recomputed inside the same database transaction whenever a linked transaction changes.
-- **Transaction** – `type`, `amount`, `owner`, `paymentMode`, `transactionDate`, optional `categoryId`, `fromAccountId`, `toAccountId`, `loanId`, `notes`.
+- **Transaction** – `type`, `amount`, `owner`, `paymentMode`, `transactionDate`, optional `categoryId`, `fromAccountId`, `toAccountId`, `loanId`, `personId`, `notes`. `GAVE` / `GOT` are people-ledger entries whose account is optional (no account = just a record).
 - **Plan** – a recurring commitment: `kind` (FEE, SUBSCRIPTION, BILL, EMI, SIP, OTHER), `name`, `amount`, `frequency`, `startDate`, optional `endDate`/`totalCount`, the account it is paid from, and a category (or, for a SIP, the investment account it funds).
 - **Installment** – one dated amount within a plan: `sequence`, `dueDate`, `amount`, `status` (PENDING, PAID, SKIPPED) and the `transactionId` it created when paid. "Overdue" and "due soon" are derived from the date, never stored.
 - **Valuation** – a dated `value` for an investment account. One per account per day; recording again the same day replaces it.
@@ -325,12 +334,12 @@ app/
     transactions/          activity, new, [id] (detail/edit/delete)
     accounts/              list, [id] detail + history
     categories/
-    loans/                 people overview, [personId] detail
+    people/                people ledger overview, [personId] ledger (/loans redirects here)
     trading/
     reports/
     settings/
   api/health/              health check (app + database)
-  api/export/[kind]/       CSV export (transactions | accounts | loans)
+  api/export/[kind]/       CSV export (transactions | accounts | people | plans)
   manifest.ts, offline/    PWA
 components/
   ui/                      shadcn/ui primitives

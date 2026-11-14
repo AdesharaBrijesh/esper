@@ -35,7 +35,7 @@ const MORE_SECTIONS = [
   "/cards",
   "/investments",
   "/trading",
-  "/loans",
+  "/people",
   "/reports",
   "/categories",
 ];
@@ -66,7 +66,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { href: "/cards", label: "Cards", icon: CreditCard },
   { href: "/investments", label: "Investments", icon: LineChart },
   { href: "/trading", label: "Trading", icon: TrendingUp },
-  { href: "/loans", label: "People & Loans", icon: Users },
+  { href: "/people", label: "People", icon: Users },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/categories", label: "Categories", icon: Tags },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -77,7 +77,10 @@ export const ADD_NAV: NavItem = { href: "/transactions/new", label: "Add", icon:
 export function isNavActive(pathname: string, item: NavItem): boolean {
   const base = item.match ?? item.href;
   if (base === "/") return pathname === "/";
-  if (base === "/transactions") return pathname.startsWith("/transactions") && !pathname.startsWith("/transactions/new");
+  if (base === "/transactions") {
+    // Adding something (form or quick list) belongs to the Add button, not Activity.
+    return pathname.startsWith("/transactions") && !pathname.startsWith("/transactions/new") && !pathname.startsWith("/transactions/quick");
+  }
   const prefixes = item.matchAny ?? [base];
   return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }

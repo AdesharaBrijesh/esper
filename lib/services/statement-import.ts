@@ -2,6 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { ParseCsvResult, SkippedLine } from "@/lib/calculations/statement-csv";
 import { suggestCategory, type MatchConfidence } from "@/lib/calculations/categorize";
+import type { RawTradingRow, TradingKind } from "@/lib/calculations/ai-statement";
+import { getLearnedCategoryHints } from "@/lib/data/learned-categories";
 import { toCategoryDTO } from "@/lib/serialize";
 import { fromDateOnly, toDateOnly, type DateOnly } from "@/lib/dates";
 import { moneyToString } from "@/lib/money";
@@ -23,6 +25,20 @@ export interface StatementPreview {
   skipped: SkippedLine[];
 }
 
+export interface TradingPreviewRow {
+  index: number;
+  date: DateOnly;
+  description: string;
+  amount: string;
+  kind: TradingKind;
+  possibleDuplicate: boolean;
+}
+
+export interface TradingPreview {
+  rows: TradingPreviewRow[];
+  skipped: SkippedLine[];
+}
+
 const MAX_ROWS = 2000;
 
 /**
@@ -35,6 +51,7 @@ export async function previewStatement(
   userId: string,
   accountId: string,
   parseResult: ParseCsvResult,
+  opts: { categoryHints?: readonly (string | null)[] } = {},
 ): Promise<StatementPreview> {
   const account = await prisma.account.findFirst({ where: { id: accountId, userId }, select: { id: true } });
   if (!account) throw new Error("Account not found");
@@ -46,7 +63,17 @@ export async function previewStatement(
 
   if (rows.length === 0) return { rows: [], skipped: allSkipped };
 
-  const categories = (await prisma.category.findMany({ where: { userId } })).map(toCategoryDTO);
+  const [categoryRows, learned] = await Promise.all([
+    prisma.category.findMany({ where: { userId } }),
+    getLearnedCategoryHints(userId),
+  ]);
+  const categories = categoryRows.map(toCategoryDTO);
+  const hintFor = (index: number, isExpense: boolean) => {
+    const name = opts.categoryHints?.[index]?.toLowerCase();
+    if (!name) return null;
+    const type = isExpense ? "EXPENSE" : "INCOME";
+    return categories.find((c) => c.isActive && c.type === type && c.name.toLowerCase() === name) ?? null;
+  };
 
   const dates = rows.map((r) => r.date).sort();
   const [existingOut, existingIn] = await Promise.all([
@@ -73,7 +100,10 @@ export async function previewStatement(
 
   const preview: PreviewRow[] = rows.map((row, index) => {
     const isExpense = row.direction === "debit";
-    const suggestion = suggestCategory(row.description, isExpense, categories);
+    const rules = suggestCategory(row.description, isExpense, categories, learned);
+    // The user's own history and exact keywords beat the AI's guess; the AI beats a blind fallback.
+    const aiPick = rules.confidence === "matched" ? null : hintFor(index, isExpense);
+    const suggestion = aiPick ? { categoryId: aiPick.id, confidence: "matched" as const } : rules;
     const amount = row.amount.toFixed(2);
     const key = existingKey(row.date, amount);
     const possibleDuplicate = row.direction === "debit" ? debitKeys.has(key) : creditKeys.has(key);
@@ -90,4 +120,52 @@ export async function previewStatement(
   });
 
   return { rows: preview, skipped: allSkipped };
+}
+
+/**
+ * Review rows for a broker import, with a duplicate flag for entries that look already
+ * recorded (same date, amount and direction in this trading account).
+ */
+export async function previewTrading(
+  userId: string,
+  tradingAccountId: string,
+  parsed: { rows: RawTradingRow[]; skipped: SkippedLine[] },
+): Promise<TradingPreview> {
+  const account = await prisma.account.findFirst({
+    where: { id: tradingAccountId, userId, type: "TRADING" },
+    select: { id: true },
+  });
+  if (!account) throw new Error("Trading account not found");
+  const rows = parsed.rows.slice(0, MAX_ROWS);
+  if (rows.length === 0) return { rows: [], skipped: parsed.skipped };
+
+  const dates = rows.map((r) => r.date).sort();
+  const existing = await prisma.transaction.findMany({
+    where: {
+      userId,
+      OR: [{ fromAccountId: tradingAccountId }, { toAccountId: tradingAccountId }],
+      transactionDate: { gte: fromDateOnly(dates[0]), lte: fromDateOnly(dates[dates.length - 1]) },
+    },
+    select: { transactionDate: true, amount: true, toAccountId: true },
+  });
+  // "in" = money into the trading account (profit, deposit); "out" = loss, charges, withdrawal.
+  const keys = new Set(
+    existing.map((t) => `${toDateOnly(t.transactionDate)}|${moneyToString(t.amount)}|${t.toAccountId === tradingAccountId ? "in" : "out"}`),
+  );
+  const sideOf = (k: TradingKind) => (k === "profit" || k === "deposit" ? "in" : "out");
+
+  return {
+    rows: rows.map((r, index) => {
+      const amount = r.amount.toFixed(2);
+      return {
+        index,
+        date: r.date,
+        description: r.description,
+        amount,
+        kind: r.kind,
+        possibleDuplicate: keys.has(`${r.date}|${amount}|${sideOf(r.kind)}`),
+      };
+    }),
+    skipped: parsed.skipped,
+  };
 }

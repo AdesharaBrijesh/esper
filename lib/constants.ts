@@ -150,6 +150,8 @@ export const TRANSACTION_TYPES = [
   "LEND",
   "LOAN_REPAYMENT",
   "LENT_REPAYMENT",
+  "GAVE",
+  "GOT",
 ] as const satisfies readonly TransactionType[];
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
@@ -164,6 +166,8 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   LEND: "Lent",
   LOAN_REPAYMENT: "Loan Repayment",
   LENT_REPAYMENT: "Repayment Received",
+  GAVE: "You gave",
+  GOT: "You got",
 };
 
 export const TRANSACTION_TYPE_ICONS: Record<TransactionType, string> = {
@@ -178,6 +182,8 @@ export const TRANSACTION_TYPE_ICONS: Record<TransactionType, string> = {
   LEND: "🫴",
   LOAN_REPAYMENT: "💸",
   LENT_REPAYMENT: "🪙",
+  GAVE: "↗️",
+  GOT: "↙️",
 };
 
 /** High-level group used by the type selector and reports. */
@@ -187,8 +193,18 @@ export const TRANSACTION_GROUPS: { value: TransactionGroup; label: string; types
   { value: "INCOME", label: "Income", types: ["INCOME"] },
   { value: "TRANSFER", label: "Transfer", types: ["TRANSFER"] },
   { value: "TRADING", label: "Trading", types: ["TRADING_DEPOSIT", "TRADING_WITHDRAWAL", "TRADING_PROFIT", "TRADING_LOSS"] },
-  { value: "LOAN", label: "Borrow/Lend", types: ["BORROW", "LEND", "LOAN_REPAYMENT", "LENT_REPAYMENT"] },
+  { value: "LOAN", label: "People", types: ["GAVE", "GOT", "BORROW", "LEND", "LOAN_REPAYMENT", "LENT_REPAYMENT"] },
 ];
+
+/**
+ * The original per-loan types. Still valid (existing data uses them and every balance
+ * still counts them), but new money with a person is recorded as GAVE / GOT, so these are
+ * never offered when creating something new.
+ */
+export const LEGACY_LOAN_TYPES = ["BORROW", "LEND", "LOAN_REPAYMENT", "LENT_REPAYMENT"] as const satisfies readonly TransactionType[];
+export function isLegacyLoanType(type: TransactionType): boolean {
+  return (LEGACY_LOAN_TYPES as readonly TransactionType[]).includes(type);
+}
 export const TRANSACTION_TYPE_GROUP: Record<TransactionType, TransactionGroup> = {
   EXPENSE: "EXPENSE",
   INCOME: "INCOME",
@@ -201,19 +217,21 @@ export const TRANSACTION_TYPE_GROUP: Record<TransactionType, TransactionGroup> =
   LEND: "LOAN",
   LOAN_REPAYMENT: "LOAN",
   LENT_REPAYMENT: "LOAN",
+  GAVE: "LOAN",
+  GOT: "LOAN",
 };
 
 /**
  * Money flow rules per transaction type.
  * - from: account the money leaves (balance decreases)
  * - to:   account the money enters (balance increases)
- * Each side is "required", "none".
+ * Each side is "required", "optional" or "none".
  * accountKind constrains the account type on that side.
  */
 export type AccountKind = "TRADING" | "NON_TRADING" | "ANY";
 export interface TransactionFlow {
-  from: "required" | "none";
-  to: "required" | "none";
+  from: "required" | "optional" | "none";
+  to: "required" | "optional" | "none";
   fromKind: AccountKind;
   toKind: AccountKind;
   category: "required" | "optional" | "none";
@@ -221,6 +239,8 @@ export interface TransactionFlow {
   loan: "creates" | "repays" | "none";
   /** How the amount is shown in lists: money out (-), in (+), or neutral. */
   sign: "out" | "in" | "neutral";
+  /** People ledger entry: needs a person, no loan. */
+  ledger?: true;
   description: string;
 }
 
@@ -282,6 +302,31 @@ export const TRANSACTION_FLOWS: Record<TransactionType, TransactionFlow> = {
     category: "none", categoryType: null, loan: "repays", sign: "in",
     description: "Receiving money you had lent.",
   },
+  // The account is optional so an old debt ("I owe Raj 2,000 from last month") can be
+  // written down without pretending money left an account today.
+  GAVE: {
+    from: "optional", to: "none", fromKind: "NON_TRADING", toKind: "ANY",
+    category: "none", categoryType: null, loan: "none", sign: "out", ledger: true,
+    description: "Money you handed to someone. They owe you this much more (or you owe them less).",
+  },
+  GOT: {
+    from: "none", to: "optional", fromKind: "ANY", toKind: "NON_TRADING",
+    category: "none", categoryType: null, loan: "none", sign: "in", ledger: true,
+    description: "Money someone handed to you. You owe them this much more (or they owe you less).",
+  },
+};
+
+/**
+ * Which way a transaction moves money between you and a person, from the person's
+ * balance point of view: +1 means they owe you more, -1 means you owe them more.
+ */
+export const PERSON_BALANCE_SIGN: Partial<Record<TransactionType, 1 | -1>> = {
+  GAVE: 1,
+  LEND: 1,
+  LOAN_REPAYMENT: 1,
+  GOT: -1,
+  BORROW: -1,
+  LENT_REPAYMENT: -1,
 };
 
 export const LOAN_DIRECTIONS = ["BORROWED", "LENT"] as const satisfies readonly LoanDirection[];

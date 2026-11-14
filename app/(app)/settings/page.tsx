@@ -41,7 +41,7 @@ const SHORTCUTS = [
   { href: "/plans", label: "Plans", hint: "Fees, subscriptions, bills, EMIs and SIPs" },
   { href: "/reports", label: "Reports", hint: "Spending, income and trends" },
   { href: "/categories", label: "Categories", hint: "Expense and income categories" },
-  { href: "/loans", label: "People", hint: "Who you borrow from and lend to" },
+  { href: "/people", label: "People", hint: "Who you owe, and who owes you" },
   { href: "/trading", label: "Trading", hint: "Capital and results per owner" },
 ];
 

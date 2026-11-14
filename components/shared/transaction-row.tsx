@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 /** Primary line for a transaction: category, person, or type label. */
 export function transactionTitle(t: TransactionDTO): string {
   if (t.category) return t.category.name;
+  if (t.type === "GAVE" && t.person) return `Gave ${t.person.name}`;
+  if (t.type === "GOT" && t.person) return `Got from ${t.person.name}`;
   if (t.loan) {
     const verb =
       t.type === "BORROW"

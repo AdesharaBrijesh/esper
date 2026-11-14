@@ -123,15 +123,17 @@ export default async function DashboardPage({
                 Net result <Money value={data.trading.netResult} signed tone="auto" className={cn(Number(data.trading.netResult) > 0 && "text-income")} />
               </p>
             </Link>
-            <Link href="/loans" className="rounded-2xl border bg-card p-3.5 transition-colors hover:bg-muted/60">
+            <Link href="/people" className="rounded-2xl border bg-card p-3.5 transition-colors hover:bg-muted/60">
               <p className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-                Loans <ChevronRight className="size-3.5" aria-hidden />
+                People <ChevronRight className="size-3.5" aria-hidden />
               </p>
-              <p className="mt-1 text-sm">
-                You owe <Money value={data.loans.youOwe} tone="expense" className="font-semibold" />
+              <p className="mt-1 flex items-baseline justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">To pay</span>
+                <Money value={data.loans.youOwe} tone="expense" className="font-semibold" />
               </p>
-              <p className="text-sm">
-                Owed to you <Money value={data.loans.owedToYou} tone="income" className="font-semibold" />
+              <p className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">To get</span>
+                <Money value={data.loans.owedToYou} tone="income" className="font-semibold" />
               </p>
             </Link>
           </section>

@@ -65,10 +65,10 @@ function splitLines(text: string): string[] {
 }
 
 const HEADER_ALIASES: Record<string, string[]> = {
-  date: ["date", "transaction date", "txn date", "value date", "posting date"],
-  description: ["description", "narration", "particulars", "details", "remarks", "transaction details"],
-  debit: ["debit", "withdrawal", "withdrawal amt", "debit amount", "dr"],
-  credit: ["credit", "deposit", "deposit amt", "credit amount", "cr"],
+  date: ["date", "transaction date", "txn date", "value date", "posting date", "tran date", "trans date"],
+  description: ["description", "narration", "particulars", "details", "remarks", "transaction details", "transaction remarks"],
+  debit: ["debit", "withdrawal", "withdrawals", "withdrawal amt", "debit amount", "dr", "debit amt", "withdrawal amount"],
+  credit: ["credit", "deposit", "deposits", "deposit amt", "credit amount", "cr", "credit amt", "deposit amount"],
   amount: ["amount", "transaction amount", "txn amount"],
   type: ["type", "transaction type", "dr/cr", "crdr"],
 };
@@ -126,38 +126,63 @@ export function parseAmount(raw: string): Decimal | null {
   return d.isZero() ? null : d;
 }
 
+/** How far down a sheet to look for the header row (banks put account details above it). */
+const HEADER_SEARCH_ROWS = 40;
+
+interface HeaderMap {
+  row: number;
+  dateIdx: number;
+  descIdx: number;
+  debitIdx: number;
+  creditIdx: number;
+  amountIdx: number;
+  typeIdx: number;
+}
+
+function findHeader(table: readonly string[][]): HeaderMap | null {
+  const limit = Math.min(table.length, HEADER_SEARCH_ROWS);
+  for (let r = 0; r < limit; r++) {
+    const header = table[r].map((h) => h.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.:]$/, "").replace(/\s*\((inr|rs\.?|₹)\)$/, ""));
+    const dateIdx = matchHeader(header, "date");
+    const descIdx = matchHeader(header, "description");
+    const debitIdx = matchHeader(header, "debit");
+    const creditIdx = matchHeader(header, "credit");
+    const amountIdx = matchHeader(header, "amount");
+    const typeIdx = matchHeader(header, "type");
+    if (dateIdx !== -1 && descIdx !== -1 && (debitIdx !== -1 || creditIdx !== -1 || amountIdx !== -1)) {
+      return { row: r, dateIdx, descIdx, debitIdx, creditIdx, amountIdx, typeIdx };
+    }
+  }
+  return null;
+}
+
 /**
- * Parses full CSV text into statement rows. Accepts either a Debit/Credit column
- * pair, or a single Amount column plus a Dr/Cr type column, or a signed Amount
+ * Parses an already-split table (CSV lines or spreadsheet rows) into statement rows.
+ * The header row is searched for in the first few rows. Accepts either a Debit/Credit
+ * column pair, or a single Amount column plus a Dr/Cr type column, or a signed Amount
  * column (negative = debit).
  */
-export function parseStatementCsv(text: string): ParseCsvResult {
-  const lines = splitLines(text).filter((l) => l.length > 0);
+export function parseStatementTable(table: readonly string[][]): ParseCsvResult {
   const rows: RawStatementRow[] = [];
   const skipped: SkippedLine[] = [];
-  if (lines.length === 0) return { rows, skipped };
+  const nonEmpty = table.filter((r) => r.some((c) => c.trim() !== ""));
+  if (nonEmpty.length === 0) return { rows, skipped };
 
-  const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
-  const dateIdx = matchHeader(header, "date");
-  const descIdx = matchHeader(header, "description");
-  const debitIdx = matchHeader(header, "debit");
-  const creditIdx = matchHeader(header, "credit");
-  const amountIdx = matchHeader(header, "amount");
-  const typeIdx = matchHeader(header, "type");
-
-  if (dateIdx === -1 || descIdx === -1 || (debitIdx === -1 && creditIdx === -1 && amountIdx === -1)) {
+  const h = findHeader(table);
+  if (!h) {
     skipped.push({
       line: 1,
       reason: "Couldn't find Date, Description and Debit/Credit (or Amount) columns in the header row",
-      raw: lines[0],
+      raw: (nonEmpty[0] ?? []).join(","),
     });
     return { rows, skipped };
   }
+  const { dateIdx, descIdx, debitIdx, creditIdx, amountIdx, typeIdx } = h;
 
-  for (let i = 1; i < lines.length; i++) {
-    const raw = lines[i];
-    if (!raw.trim()) continue;
-    const cols = parseCsvLine(raw);
+  for (let i = h.row + 1; i < table.length; i++) {
+    const cols = table[i];
+    if (!cols.some((c) => c.trim() !== "")) continue;
+    const raw = cols.join(",");
     const lineNo = i + 1;
 
     const date = parseStatementDate(cols[dateIdx] ?? "");
@@ -211,4 +236,9 @@ export function parseStatementCsv(text: string): ParseCsvResult {
   }
 
   return { rows, skipped };
+}
+
+/** Parses full CSV text into statement rows. See parseStatementTable. */
+export function parseStatementCsv(text: string): ParseCsvResult {
+  return parseStatementTable(splitLines(text).map(parseCsvLine));
 }

@@ -207,17 +207,17 @@ export default async function ReportsPage({
       </Section>
 
       <Section
-        title="Loans"
-        description="Outstanding balances right now (not limited to the range)."
+        title="People"
+        description="What you owe and are owed right now (not limited to the range)."
         action={
-          <Link href="/loans" className="text-xs font-medium text-primary hover:underline">
+          <Link href="/people" className="text-xs font-medium text-primary hover:underline">
             Open people
           </Link>
         }
       >
         <div className="grid grid-cols-3 gap-2">
-          <StatCard label="You owe" value={data.loans.youOwe} tone="expense" compact />
-          <StatCard label="Owed to you" value={data.loans.owedToYou} tone="income" compact />
+          <StatCard label="To pay" value={data.loans.youOwe} tone="expense" compact />
+          <StatCard label="To get" value={data.loans.owedToYou} tone="income" compact />
           <StatCard label="Net" value={data.loans.net} tone="auto" compact />
         </div>
       </Section>
@@ -226,8 +226,8 @@ export default async function ReportsPage({
         <Button variant="outline" size="lg" className="h-10 rounded-xl" render={<a href="/api/export/accounts" download />}>
           <Download className="size-4" aria-hidden /> Accounts CSV
         </Button>
-        <Button variant="outline" size="lg" className="h-10 rounded-xl" render={<a href="/api/export/loans" download />}>
-          <Download className="size-4" aria-hidden /> Loans CSV
+        <Button variant="outline" size="lg" className="h-10 rounded-xl" render={<a href="/api/export/people" download />}>
+          <Download className="size-4" aria-hidden /> People CSV
         </Button>
       </div>
     </div>

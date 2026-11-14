@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 ### Added
 
+- **People ledger** (`/people`, replaces "People & Loans"): one running balance per friend.
+  "You gave" / "You got" entries, each optionally through an account (no account = just a
+  record, no balance moves). Shows who you owe and who owes you, the total you need to pay
+  everyone and the total you'll get back, a running balance per entry, and a one-tap
+  "Settle up". New `GAVE` / `GOT` transaction types and `Transaction.personId`; existing loan
+  transactions are kept as they are and counted in the same balance (an additive migration
+  backfills their `personId`). `/loans` redirects to `/people`.
+- **Quick add** (`/transactions/quick`): type a whole day of spends, one per line —
+  `50 burger`, `30 auto`, `45 bus online` — with a live preview. Amounts in any common form
+  (`₹50`, `50rs`, `1,200`, `2k`), categories from a word-aware keyword dictionary plus what you
+  filed the same words under before, Miscellaneous otherwise. Paid from cash by default;
+  `bob` / `online` / `upi` (and gpay, phonepe, …) pay from the online account, and any of your
+  own account names works too. Every chip is editable before adding.
+- **Smarter import**: Excel (.xlsx) statements; header rows found below a bank's preamble;
+  UPI screenshots, photos and scanned PDFs read by Gemini (free tier, `GEMINI_API_KEY`); and an
+  **Angel One** mode that turns P&L statements, tradebooks, ledgers and screenshots into
+  trading profit / loss / charges / deposit / withdrawal entries. AI output is validated row by
+  row, rows are editable (date, description, amount, category or kind) and duplicates are
+  flagged. Busy models are retried, then the next model is tried.
+
 - **Bank statement import**: upload a CSV or PDF statement (`/transactions/import`), get every row
   auto-categorised against your own categories (free, rule-based keyword matching — no API key, no
   AI cost), review and fix any row on screen, then approve to create the transactions in one go.

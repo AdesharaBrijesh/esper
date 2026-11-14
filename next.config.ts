@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/adapter-pg", "pg"],
   experimental: {
     useOffline: true,
+    serverActions: {
+      // Statement / screenshot uploads go through a server action. Vercel caps request
+      // bodies at 4.5MB, so that is the ceiling; the client compresses photos to fit.
+      bodySizeLimit: "4.5mb",
+    },
+  },
+  // Loans became the People ledger; keep old links and bookmarks working.
+  async redirects() {
+    return [
+      { source: "/loans", destination: "/people", permanent: true },
+      { source: "/loans/:personId", destination: "/people/:personId", permanent: true },
+    ];
   },
   async headers() {
     return [

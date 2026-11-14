@@ -1,7 +1,7 @@
 import "server-only";
 import { getTransactionsForReports } from "@/lib/data/transactions";
 import { getTradingOverview, type TradingSummaryDTO } from "@/lib/data/trading";
-import { getLoanOverview } from "@/lib/data/loans";
+import { getLedgerTotals } from "@/lib/data/people";
 import {
   cashVsOnline,
   incomeVsExpense,
@@ -58,7 +58,7 @@ export async function getReportData(userId: string, range: DateRange, owner: Own
   const [rows, trading, loans] = await Promise.all([
     getTransactionsForReports(userId, range, owner),
     getTradingOverview(userId, owner, { range, limit: 0 }),
-    getLoanOverview(userId),
+    getLedgerTotals(userId),
   ]);
 
   const totals = incomeVsExpense(rows);
@@ -107,6 +107,6 @@ export async function getReportData(userId: string, range: DateRange, owner: Own
     cashVsOnline: { cash: moneyToString(cvo.cash), online: moneyToString(cvo.online) },
     trading: trading.byOwner,
     tradingCapital: trading.capitalByOwner,
-    loans: { youOwe: loans.youOwe, owedToYou: loans.owedToYou, net: loans.net },
+    loans: { youOwe: loans.toPay, owedToYou: loans.toReceive, net: loans.net },
   };
 }

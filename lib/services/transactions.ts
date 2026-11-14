@@ -182,6 +182,7 @@ async function loadLoanForRepayment(
     select: {
       id: true,
       direction: true,
+      personId: true,
       originalAmount: true,
       transactions: {
         where: { type: { in: REPAYMENT_TYPES }, ...(excludeTransactionId ? { id: { not: excludeTransactionId } } : {}) },
@@ -227,9 +228,12 @@ export async function createTransaction(userId: string, input: unknown): Promise
     await validateStructure(tx, userId, data);
 
     let loanId: string | null = null;
+    let personId: string | null = null;
 
-    if (flow.loan === "creates") {
-      const personId = await resolvePerson(tx, userId, data);
+    if (flow.ledger) {
+      personId = await resolvePerson(tx, userId, data);
+    } else if (flow.loan === "creates") {
+      personId = await resolvePerson(tx, userId, data);
       const direction = LOAN_DIRECTION_FOR_TYPE[data.type] as LoanDirection;
       const loan = await tx.loan.create({
         data: {
@@ -250,10 +254,11 @@ export async function createTransaction(userId: string, input: unknown): Promise
       const err = validateRepaymentAmount(outstanding, data.amount);
       if (err) throw fieldError("amount", err);
       loanId = loan.id;
+      personId = loan.personId;
     }
 
     const created = await tx.transaction.create({
-      data: { ...baseData(userId, data), loanId },
+      data: { ...baseData(userId, data), loanId, personId },
       select: { id: true },
     });
 
@@ -291,6 +296,7 @@ export async function updateTransaction(userId: string, id: string, input: unkno
 
     const oldFlow = TRANSACTION_FLOWS[existing.type];
     let loanId: string | null = null;
+    let personId: string | null = null;
     let loanToDelete: string | null = null;
     const loansToRecompute = new Set<string>();
 
@@ -302,7 +308,7 @@ export async function updateTransaction(userId: string, id: string, input: unkno
         const repaid = sum(loan.transactions.map((t) => t.amount));
         const err = validateOriginalAmountChange(data.amount, repaid);
         if (err) throw fieldError("amount", err);
-        const personId = data.personId || data.personName ? await resolvePerson(tx, userId, data) : loan.personId;
+        personId = data.personId || data.personName ? await resolvePerson(tx, userId, data) : loan.personId;
         const outstanding = toDecimal(data.amount).minus(repaid);
         await tx.loan.update({
           where: { id: loan.id },
@@ -333,8 +339,10 @@ export async function updateTransaction(userId: string, id: string, input: unkno
     }
 
     // --- New transaction semantics -------------------------------------
-    if (newFlow.loan === "creates" && !loanId) {
-      const personId = await resolvePerson(tx, userId, data);
+    if (newFlow.ledger) {
+      personId = await resolvePerson(tx, userId, data);
+    } else if (newFlow.loan === "creates" && !loanId) {
+      personId = await resolvePerson(tx, userId, data);
       const direction = LOAN_DIRECTION_FOR_TYPE[data.type] as LoanDirection;
       const loan = await tx.loan.create({
         data: {
@@ -355,12 +363,13 @@ export async function updateTransaction(userId: string, id: string, input: unkno
       const err = validateRepaymentAmount(outstanding, data.amount);
       if (err) throw fieldError("amount", err);
       loanId = loan.id;
+      personId = loan.personId;
       loansToRecompute.add(loan.id);
     }
 
     await tx.transaction.update({
       where: { id: existing.id },
-      data: { ...baseData(userId, data), loanId },
+      data: { ...baseData(userId, data), loanId, personId },
     });
 
     if (loanToDelete) await tx.loan.delete({ where: { id: loanToDelete } });

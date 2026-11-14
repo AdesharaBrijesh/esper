@@ -49,8 +49,8 @@ export default async function TransactionDetailPage({
     ...(t.toAccount
       ? [{ label: "To", value: <Link href={`/accounts/${t.toAccount.id}`} className="underline-offset-2 hover:underline">{t.toAccount.name}</Link> }]
       : []),
-    ...(t.loan
-      ? [{ label: "Person", value: <Link href={`/loans/${t.loan.personId}`} className="underline-offset-2 hover:underline">{t.loan.personName}</Link> }]
+    ...(t.person
+      ? [{ label: "Person", value: <Link href={`/people/${t.person.id}`} className="underline-offset-2 hover:underline">{t.person.name}</Link> }]
       : []),
     { label: "Owner", value: OWNER_LABELS[t.owner] },
     { label: "Payment mode", value: PAYMENT_MODE_LABELS[t.paymentMode] },

@@ -93,6 +93,9 @@ export interface TransactionDTO {
   toAccount: { id: string; name: string; type: AccountType; owner: Owner } | null;
   loanId: string | null;
   loan: { id: string; direction: LoanDirection; personId: string; personName: string } | null;
+  /** Counterparty of a people-ledger entry (or of a loan transaction). */
+  personId: string | null;
+  person: { id: string; name: string } | null;
 }
 
 export interface InstallmentDTO {

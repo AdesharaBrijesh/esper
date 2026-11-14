@@ -34,7 +34,7 @@ export function buildTransactionWhere(userId: string, f: Partial<TransactionFilt
   if (f.owner) where.owner = f.owner;
   if (f.paymentMode) where.paymentMode = f.paymentMode;
   if (f.loanId) where.loanId = f.loanId;
-  if (f.personId) where.loan = { personId: f.personId };
+  if (f.personId) where.personId = f.personId;
   if (f.q) where.notes = { contains: f.q, mode: "insensitive" };
   return where;
 }

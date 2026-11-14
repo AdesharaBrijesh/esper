@@ -43,6 +43,10 @@ enum TransactionType {
   LEND
   LOAN_REPAYMENT
   LENT_REPAYMENT
+  /// People ledger: money you handed to a person (they owe you more / you owe them less).
+  GAVE
+  /// People ledger: money a person handed to you (you owe them more / they owe you less).
+  GOT
 }
 
 enum PaymentMode {
@@ -181,8 +185,10 @@ model Person {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  loans Loan[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loans        Loan[]
+  /// Every money movement with this person (GAVE / GOT, plus legacy loan transactions).
+  transactions Transaction[]
 
   @@index([userId])
 }
@@ -226,6 +232,9 @@ model Transaction {
   transactionDate DateTime        @db.Date
   /// Set for BORROW, LEND, LOAN_REPAYMENT, LENT_REPAYMENT
   loanId          String?
+  /// The other side of a GAVE / GOT entry (and of any loan transaction). A person's balance
+  /// is simply what you gave them minus what you got from them.
+  personId        String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -234,6 +243,7 @@ model Transaction {
   fromAccount Account?  @relation("FromAccount", fields: [fromAccountId], references: [id], onDelete: Restrict)
   toAccount   Account?  @relation("ToAccount", fields: [toAccountId], references: [id], onDelete: Restrict)
   loan        Loan?     @relation(fields: [loanId], references: [id], onDelete: Restrict)
+  person      Person?   @relation(fields: [personId], references: [id], onDelete: Restrict)
   /// Set when this transaction was created by paying a plan instalment.
   installment Installment?
 
@@ -245,6 +255,7 @@ model Transaction {
   @@index([toAccountId])
   @@index([categoryId])
   @@index([loanId])
+  @@index([userId, personId])
 }
 
 /// A recurring obligation: course fees, a subscription, a utility bill, an EMI or a SIP.

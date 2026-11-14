@@ -6,6 +6,7 @@ import { getLoans } from "@/lib/data/loans";
 import { safePath } from "@/lib/safe-path";
 import { PageHeader } from "@/components/shared/page-header";
 import { TransactionForm, type TransactionFormPrefill } from "@/components/transactions/transaction-form";
+import { AddModeTabs } from "@/components/transactions/add-mode-tabs";
 
 export const metadata = { title: "Add transaction" };
 
@@ -43,6 +44,8 @@ export default async function NewTransactionPage({ searchParams }: { searchParam
   return (
     <div className="mx-auto w-full max-w-xl lg:max-w-2xl">
       <PageHeader title="Add transaction" backHref={returnTo} />
+      {/* Quick add only makes expenses, so only offer it when that is what's being added. */}
+      {!prefill.type || prefill.type === "EXPENSE" ? <AddModeTabs active="form" className="mb-4" /> : null}
       <TransactionForm mode="create" accounts={accounts} categories={categories} people={people} loans={loans} prefill={prefill} />
     </div>
   );

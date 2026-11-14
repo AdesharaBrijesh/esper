@@ -33,7 +33,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function BottomNav() {
   const pathname = usePathname();
-  const onAdd = pathname.startsWith(ADD_NAV.href);
+  const onAdd = pathname.startsWith(ADD_NAV.href) || pathname.startsWith("/transactions/quick");
   return (
     <nav
       aria-label="Primary"

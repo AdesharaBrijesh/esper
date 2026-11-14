@@ -55,6 +55,7 @@ export function PersonFormDialog({
       }
       toast.success(isEdit ? "Person updated" : "Person added");
       setOpen(false);
+      if (!isEdit && "id" in res.data) router.push(`/people/${res.data.id}`);
       router.refresh();
     });
   });
@@ -70,7 +71,7 @@ export function PersonFormDialog({
           <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
             <DialogHeader className="p-0">
               <DialogTitle>{isEdit ? "Edit person" : "New person"}</DialogTitle>
-              <DialogDescription>Someone you borrow from or lend to.</DialogDescription>
+              <DialogDescription>Anyone you give money to or get money from.</DialogDescription>
             </DialogHeader>
             <FormError message={formError} />
             <Field id="p-name" label="Name" error={formState.errors.name?.message} required>

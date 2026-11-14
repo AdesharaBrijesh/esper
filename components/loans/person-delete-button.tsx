@@ -7,7 +7,17 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog, useConfirm } from "@/components/shared/confirm-dialog";
 import { deletePersonAction } from "@/lib/actions/people";
 
-export function PersonDeleteButton({ id, name, iconOnly = false }: { id: string; name: string; iconOnly?: boolean }) {
+export function PersonDeleteButton({
+  id,
+  name,
+  entryCount = 0,
+  iconOnly = false,
+}: {
+  id: string;
+  name: string;
+  entryCount?: number;
+  iconOnly?: boolean;
+}) {
   const router = useRouter();
   const confirm = useConfirm();
   return (
@@ -26,7 +36,11 @@ export function PersonDeleteButton({ id, name, iconOnly = false }: { id: string;
         open={confirm.open}
         onOpenChange={confirm.setOpen}
         title={`Delete ${name}?`}
-        description="This person has no loan history and will be removed permanently."
+        description={
+          entryCount > 0
+            ? `This also deletes their ${entryCount} entr${entryCount === 1 ? "y" : "ies"}. Any account balance those entries changed goes back to what it was. This can't be undone.`
+            : "They have no entries and will be removed permanently."
+        }
         confirmLabel="Delete"
         destructive
         onConfirm={async () => {
@@ -36,7 +50,7 @@ export function PersonDeleteButton({ id, name, iconOnly = false }: { id: string;
             return;
           }
           toast.success("Person deleted");
-          router.push("/loans");
+          router.push("/people");
           router.refresh();
         }}
       />

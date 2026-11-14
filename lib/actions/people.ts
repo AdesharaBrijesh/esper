@@ -39,16 +39,24 @@ export async function updatePersonAction(id: string, input: PersonInput): Promis
   });
 }
 
-/** Delete a person; only allowed when they have no loans. */
-export async function deletePersonAction(id: string): Promise<ActionResult<null>> {
+/**
+ * Delete a person together with their GAVE / GOT entries (which also reverses whatever
+ * those entries did to account balances). Blocked while old-style loans exist, since
+ * those carry their own repayment bookkeeping.
+ */
+export async function deletePersonAction(id: string): Promise<ActionResult<{ deletedEntries: number }>> {
   const userId = await requireUserId();
   return runAction(async () => {
     const existing = await prisma.person.findFirst({ where: { id, userId }, select: { id: true } });
     if (!existing) throw new NotFoundError("Person");
     const loans = await prisma.loan.count({ where: { userId, personId: id } });
-    if (loans > 0) throw new AppError("This person has loan history and cannot be deleted.");
-    await prisma.person.delete({ where: { id } });
+    if (loans > 0) throw new AppError("This person has older loan records. Delete those transactions first.");
+    const deletedEntries = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.transaction.deleteMany({ where: { userId, personId: id, type: { in: ["GAVE", "GOT"] } } });
+      await tx.person.delete({ where: { id } });
+      return count;
+    });
     revalidateAll();
-    return null;
+    return { deletedEntries };
   });
 }

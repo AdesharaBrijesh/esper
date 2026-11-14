@@ -1,7 +1,7 @@
 import "server-only";
 import { getAccountsWithBalances, netWorthOf, totalsByAccountType, type AccountTypeTotal } from "@/lib/data/accounts";
 import { getRecentTransactions, getTransactionsForReports } from "@/lib/data/transactions";
-import { getLoanOverview } from "@/lib/data/loans";
+import { getLedgerTotals } from "@/lib/data/people";
 import { getTradingOverview } from "@/lib/data/trading";
 import { getUpcomingInstallments, getPlanTotals, type PlanTotals, type UpcomingInstallment } from "@/lib/data/plans";
 import { cardTotals, getCards, type CardTotalsDTO } from "@/lib/data/cards";
@@ -45,7 +45,7 @@ export async function getDashboardData(userId: string, owner: OwnerFilter = "ALL
     getAccountsWithBalances(userId, { owner }),
     getTransactionsForReports(userId, range, owner),
     getRecentTransactions(userId, 8, owner),
-    getLoanOverview(userId),
+    getLedgerTotals(userId),
     getTradingOverview(userId, owner, { limit: 0 }),
     getUpcomingInstallments(userId, { daysAhead: 45, limit: 5, owner }),
     getPlanTotals(userId, owner),
@@ -77,7 +77,7 @@ export async function getDashboardData(userId: string, owner: OwnerFilter = "ALL
     },
     spendingByCategory: byCategory,
     recent,
-    loans: { youOwe: loans.youOwe, owedToYou: loans.owedToYou },
+    loans: { youOwe: loans.toPay, owedToYou: loans.toReceive },
     trading: {
       capital: trading.capital,
       netResult: trading.summary.netResult,

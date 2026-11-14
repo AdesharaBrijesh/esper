@@ -21,6 +21,7 @@ import {
   TRANSACTION_GROUPS,
   TRANSACTION_TYPE_GROUP,
   TRANSACTION_TYPE_LABELS,
+  isLegacyLoanType,
   type AccountKind,
   type Owner,
   type PaymentMode,
@@ -140,6 +141,10 @@ function submitLabel(type: TransactionType, mode: "create" | "edit"): string {
       return "Record borrowing";
     case "LEND":
       return "Record lending";
+    case "GAVE":
+      return "Save: you gave";
+    case "GOT":
+      return "Save: you got";
     default:
       return "Record repayment";
   }
@@ -157,6 +162,15 @@ const ACCOUNT_LABELS: Partial<Record<TransactionType, { from?: string; to?: stri
   LEND: { from: "Given from" },
   LOAN_REPAYMENT: { from: "Paid from" },
   LENT_REPAYMENT: { to: "Received in" },
+  GAVE: { from: "Paid from" },
+  GOT: { to: "Received in" },
+};
+
+const PERSON_LABELS: Partial<Record<TransactionType, string>> = {
+  BORROW: "Borrowed from",
+  LEND: "Lent to",
+  GAVE: "Gave to",
+  GOT: "Got from",
 };
 
 export function TransactionForm({ mode, transaction, accounts, categories, people, loans, prefill }: Props) {
@@ -194,7 +208,7 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
         fromAccountId: transaction.fromAccountId ?? "",
         toAccountId: transaction.toAccountId ?? "",
         categoryId: transaction.categoryId ?? "",
-        personId: transaction.loan?.personId ?? "",
+        personId: transaction.personId ?? transaction.loan?.personId ?? "",
         personName: "",
         loanId: transaction.loanId ?? "",
       };
@@ -214,10 +228,10 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
       owner: prefill?.owner === "BROTHER" ? "BROTHER" : "SELF",
       paymentMode: flow.sign === "neutral" ? "TRANSFER" : "CASH",
       notes: prefill?.notes ?? "",
-      fromAccountId: flow.from === "required" ? validAccount(prefill?.fromAccountId, flow.fromKind) : "",
-      toAccountId: flow.to === "required" ? validAccount(prefill?.toAccountId, flow.toKind) : "",
+      fromAccountId: flow.from !== "none" ? validAccount(prefill?.fromAccountId, flow.fromKind) : "",
+      toAccountId: flow.to !== "none" ? validAccount(prefill?.toAccountId, flow.toKind) : "",
       categoryId: flow.category !== "none" ? validCategory(prefill?.categoryId, type) || tradingProfitCategory(type) || "" : "",
-      personId: flow.loan === "creates" && people.some((p) => p.id === prefill?.personId) ? prefill!.personId! : "",
+      personId: (flow.loan === "creates" || flow.ledger) && people.some((p) => p.id === prefill?.personId) ? prefill!.personId! : "",
       personName: "",
       loanId: flow.loan === "repays" ? (loan?.id ?? "") : "",
     };
@@ -242,6 +256,8 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
   const flow = TRANSACTION_FLOWS[type];
   const group = TRANSACTION_TYPE_GROUP[type];
   const groupDef = TRANSACTION_GROUPS.find((g) => g.value === group)!;
+  // Old loan types stay editable but are never offered for something new.
+  const pickerTypes = groupDef.types.filter((t) => !isLegacyLoanType(t) || t === type);
 
   const fromAccount = accounts.find((a) => a.id === fromAccountId);
   const toAccount = accounts.find((a) => a.id === toAccountId);
@@ -254,8 +270,8 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
     if (mode !== "create" || hasPrefillIds) return;
     const r = readRemembered(defaults.type as TransactionType);
     const f = TRANSACTION_FLOWS[defaults.type as TransactionType];
-    if (f.from === "required" && !getValues("fromAccountId")) setValue("fromAccountId", validAccount(r.fromAccountId, f.fromKind));
-    if (f.to === "required" && !getValues("toAccountId")) setValue("toAccountId", validAccount(r.toAccountId, f.toKind));
+    if (f.from !== "none" && !getValues("fromAccountId")) setValue("fromAccountId", validAccount(r.fromAccountId, f.fromKind));
+    if (f.to !== "none" && !getValues("toAccountId")) setValue("toAccountId", validAccount(r.toAccountId, f.toKind));
     if (f.category !== "none" && !getValues("categoryId")) setValue("categoryId", validCategory(r.categoryId, defaults.type as TransactionType));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -279,8 +295,8 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
     const remembered = readRemembered(next);
     setValue("type", next);
     // Accounts: drop anything the new flow forbids or that is of the wrong kind; fall back to remembered ids.
-    setValue("fromAccountId", nf.from === "required" ? validAccount(getValues("fromAccountId"), nf.fromKind) || validAccount(remembered.fromAccountId, nf.fromKind) : "");
-    setValue("toAccountId", nf.to === "required" ? validAccount(getValues("toAccountId"), nf.toKind) || validAccount(remembered.toAccountId, nf.toKind) : "");
+    setValue("fromAccountId", nf.from !== "none" ? validAccount(getValues("fromAccountId"), nf.fromKind) || validAccount(remembered.fromAccountId, nf.fromKind) : "");
+    setValue("toAccountId", nf.to !== "none" ? validAccount(getValues("toAccountId"), nf.toKind) || validAccount(remembered.toAccountId, nf.toKind) : "");
     if (nf.category === "none") setValue("categoryId", "");
     else {
       setValue(
@@ -288,7 +304,7 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
         validCategory(getValues("categoryId"), next) || tradingProfitCategory(next) || validCategory(remembered.categoryId, next),
       );
     }
-    if (nf.loan !== "creates") {
+    if (nf.loan !== "creates" && !nf.ledger) {
       setValue("personId", "");
       setValue("personName", "");
       setNewPerson(false);
@@ -303,7 +319,7 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
 
   const applyGroup = (g: TransactionGroup) => {
     const def = TRANSACTION_GROUPS.find((x) => x.value === g)!;
-    if (!def.types.includes(type)) applyType(def.types[0]);
+    if (!def.types.includes(type)) applyType(def.types.find((t) => !isLegacyLoanType(t)) ?? def.types[0]);
   };
 
   const keepFrom = mode === "edit" ? transaction?.fromAccountId : null;
@@ -387,12 +403,12 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
             value={group}
             onChange={applyGroup}
           />
-          {groupDef.types.length > 1 ? (
+          {pickerTypes.length > 1 ? (
             <SegmentedControl<TransactionType>
               aria-label="Transaction type"
               fullWidth
               size="sm"
-              options={groupDef.types.map((t) => ({ value: t, label: TRANSACTION_TYPE_LABELS[t] }))}
+              options={pickerTypes.map((t) => ({ value: t, label: TRANSACTION_TYPE_LABELS[t] }))}
               value={type}
               onChange={applyType}
             />
@@ -419,22 +435,34 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
       </Field>
 
       {/* Accounts */}
-      {flow.from === "required" ? (
-        <Field id="fromAccountId" label={ACCOUNT_LABELS[type]?.from ?? "From account"} error={errors.fromAccountId?.message} required>
+      {flow.from !== "none" ? (
+        <Field
+          id="fromAccountId"
+          label={ACCOUNT_LABELS[type]?.from ?? "From account"}
+          error={errors.fromAccountId?.message}
+          required={flow.from === "required"}
+          hint={flow.from === "optional" && !fromAccountId ? "Only a record. No account balance changes." : undefined}
+        >
           <NativeSelect
             id="fromAccountId"
-            placeholder="Choose account"
+            placeholder={flow.from === "optional" ? "Not through an account" : "Choose account"}
             groups={fromGroups}
             aria-invalid={!!errors.fromAccountId}
             {...register("fromAccountId")}
           />
         </Field>
       ) : null}
-      {flow.to === "required" ? (
-        <Field id="toAccountId" label={ACCOUNT_LABELS[type]?.to ?? "To account"} error={errors.toAccountId?.message} required>
+      {flow.to !== "none" ? (
+        <Field
+          id="toAccountId"
+          label={ACCOUNT_LABELS[type]?.to ?? "To account"}
+          error={errors.toAccountId?.message}
+          required={flow.to === "required"}
+          hint={flow.to === "optional" && !toAccountId ? "Only a record. No account balance changes." : undefined}
+        >
           <NativeSelect
             id="toAccountId"
-            placeholder="Choose account"
+            placeholder={flow.to === "optional" ? "Not through an account" : "Choose account"}
             groups={toGroups}
             aria-invalid={!!errors.toAccountId}
             {...register("toAccountId")}
@@ -472,8 +500,8 @@ export function TransactionForm({ mode, transaction, accounts, categories, peopl
       ) : null}
 
       {/* Person (borrow / lend) */}
-      {flow.loan === "creates" ? (
-        <Field id="personId" label={type === "BORROW" ? "Borrowed from" : "Lent to"} error={errors.personId?.message} required>
+      {flow.loan === "creates" || flow.ledger ? (
+        <Field id="personId" label={PERSON_LABELS[type] ?? "Person"} error={errors.personId?.message} required>
           <div className="flex flex-col gap-2">
             {loanLocked ? (
               <Input id="personId" value={transaction?.loan?.personName ?? ""} readOnly className="h-11 rounded-xl" />

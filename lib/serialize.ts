@@ -17,6 +17,7 @@ export const transactionInclude = {
       person: { select: { name: true } },
     },
   },
+  person: { select: { id: true, name: true } },
 } satisfies Prisma.TransactionInclude;
 
 export type TransactionRow = Prisma.TransactionGetPayload<{ include: typeof transactionInclude }>;
@@ -41,6 +42,8 @@ export function toTransactionDTO(t: TransactionRow): TransactionDTO {
     loan: t.loan
       ? { id: t.loan.id, direction: t.loan.direction, personId: t.loan.personId, personName: t.loan.person.name }
       : null,
+    personId: t.personId,
+    person: t.person,
   };
 }
 

@@ -3,12 +3,11 @@ import { getCurrentUser } from "@/lib/auth/dal";
 import { toCsv } from "@/lib/csv";
 import { getTransactionsForExport } from "@/lib/data/transactions";
 import { getAccountsWithBalances } from "@/lib/data/accounts";
-import { getLoans } from "@/lib/data/loans";
+import { getPeopleLedger } from "@/lib/data/people";
 import { getPlans } from "@/lib/data/plans";
 import { parseTransactionFilters } from "@/lib/validations/filters";
 import {
   ACCOUNT_TYPE_LABELS,
-  LOAN_DIRECTION_LABELS,
   OWNER_LABELS,
   PAYMENT_MODE_LABELS,
   PLAN_FREQUENCY_LABELS,
@@ -20,7 +19,8 @@ import { todayDateOnly } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-const KINDS = ["transactions", "accounts", "loans", "plans"] as const;
+/** "loans" is kept as an alias of "people" so old bookmarks still download something useful. */
+const KINDS = ["transactions", "accounts", "people", "loans", "plans"] as const;
 type Kind = (typeof KINDS)[number];
 
 function csvResponse(filename: string, csv: string) {
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/export/[
           t.category?.name ?? "",
           t.fromAccount?.name ?? "",
           t.toAccount?.name ?? "",
-          t.loan?.personName ?? "",
+          t.person?.name ?? t.loan?.personName ?? "",
           t.notes ?? "",
           t.id,
         ]),
@@ -127,21 +127,25 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/export/[
       return csvResponse(`plans-${stamp}.csv`, csv);
     }
 
-    const rows = await getLoans(user.id, { status: "ALL" });
+    const ledger = await getPeopleLedger(user.id);
     const csv = toCsv([
-      ["Person", "Direction", "Original Amount (INR)", "Outstanding (INR)", "Status", "Start Date", "Notes", "ID"],
-      ...rows.map((l) => [
-        l.personName,
-        LOAN_DIRECTION_LABELS[l.direction],
-        l.originalAmount,
-        l.outstandingAmount,
-        l.status,
-        l.startDate,
-        l.notes ?? "",
-        l.id,
-      ]),
+      ["Person", "Standing", "Balance (INR)", "You gave (INR)", "You got (INR)", "Entries", "Last activity", "Phone", "ID"],
+      ...ledger.people.map((p) => {
+        const b = Number(p.balance);
+        return [
+          p.name,
+          b > 0 ? "Owes you" : b < 0 ? "You owe" : "Settled",
+          p.balance.replace(/^-/, ""),
+          p.gave,
+          p.got,
+          String(p.entryCount),
+          p.lastActivity ?? "",
+          p.phone ?? "",
+          p.id,
+        ];
+      }),
     ]);
-    return csvResponse(`loans-${stamp}.csv`, csv);
+    return csvResponse(`people-${stamp}.csv`, csv);
   } catch (err) {
     console.error("[export] failed", err);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });

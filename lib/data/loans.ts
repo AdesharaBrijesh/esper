@@ -1,9 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { summarizeLoans, summarizeLoansByPerson } from "@/lib/calculations/loans";
-import { toLoanDTO, toPersonDTO, toTransactionDTO, transactionInclude } from "@/lib/serialize";
+import { toLoanDTO } from "@/lib/serialize";
 import { moneyToString } from "@/lib/money";
-import type { LoanDTO, PersonDTO, TransactionDTO } from "@/lib/types";
+import type { LoanDTO } from "@/lib/types";
 import type { LoanDirection, LoanStatus } from "@/generated/prisma/enums";
 
 const loanInclude = { person: { select: { name: true } } } as const;
@@ -80,40 +80,5 @@ export async function getLoanOverview(userId: string): Promise<LoanOverview> {
     youOwePeople: perPerson.filter((p) => p.youOwe.greaterThan(0)).map(serialize),
     owedToYouPeople: perPerson.filter((p) => p.owedToYou.greaterThan(0)).map(serialize),
     activeLoans: rows.map(toLoanDTO),
-  };
-}
-
-export interface PersonLoanDetail {
-  person: PersonDTO;
-  loans: LoanDTO[];
-  transactions: TransactionDTO[];
-  youOwe: string;
-  owedToYou: string;
-  net: string;
-}
-
-export async function getPersonLoanDetail(userId: string, personId: string): Promise<PersonLoanDetail | null> {
-  const person = await prisma.person.findFirst({ where: { id: personId, userId } });
-  if (!person) return null;
-  const [loans, transactions] = await Promise.all([
-    prisma.loan.findMany({
-      where: { userId, personId },
-      include: loanInclude,
-      orderBy: [{ status: "asc" }, { startDate: "desc" }],
-    }),
-    prisma.transaction.findMany({
-      where: { userId, loan: { personId } },
-      include: transactionInclude,
-      orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
-    }),
-  ]);
-  const totals = summarizeLoans(loans);
-  return {
-    person: toPersonDTO(person),
-    loans: loans.map(toLoanDTO),
-    transactions: transactions.map(toTransactionDTO),
-    youOwe: moneyToString(totals.youOwe),
-    owedToYou: moneyToString(totals.owedToYou),
-    net: moneyToString(totals.net),
   };
 }

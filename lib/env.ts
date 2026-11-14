@@ -44,6 +44,10 @@ const envSchema = z
     SEED_EXAMPLE_ACCOUNTS: z.string().optional(),
     NEXT_PUBLIC_APP_NAME: z.string().optional(),
     NEXT_PUBLIC_THEME_COLOR: z.string().optional(),
+    /** Google Gemini key for AI statement / screenshot / broker-report reading. Optional. */
+    GEMINI_API_KEY: z.string().optional(),
+    /** Comma-separated Gemini models, tried in order. Defaults to flash-lite-latest, then flash-latest. */
+    GEMINI_MODEL: z.string().optional(),
     /** "nonce" (default), "basic" (no nonce, allows inline scripts) or "off". */
     CSP_MODE: z.enum(["nonce", "basic", "off"]).default("nonce"),
   })
